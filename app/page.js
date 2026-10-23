@@ -513,22 +513,12 @@ export default function Page(){
             </div>
 
 
-            <div className="mt-8"><h3 className="font-black text-[15px]">약관 및 정책</h3>
+            <div className="mt-8"><h3 className="font-black text-[15px]">계정</h3>
               <div className="mt-3 border rounded-2xl divide-y">
-                {["이용약관","개인정보 처리방침","추천·혜택 약관","마케팅 정보 수신 동의"].map(t=>
-                  <div key={t} className="flex justify-between items-center px-4 py-3 text-[13px]"><span>{t}</span><span className="text-[11px] text-black/40">준비 중</span></div>)}
-              </div>
-              <h3 className="font-black text-[15px] mt-6">고객 지원</h3>
-              <div className="mt-3 border rounded-2xl divide-y">
-                <div className="flex justify-between items-center px-4 py-3 text-[13px]"><span>문의하기</span><span className="text-[11px] text-black/40">준비 중</span></div>
-                <div className="flex justify-between items-center px-4 py-3 text-[13px]"><span>앱 버전</span><span className="text-[11px] text-black/40">1.0.0</span></div>
-              </div>
-            </div>
-            <div className="mt-6">
-              <button onClick={()=>{localStorage.removeItem("fixcut_auth"); localStorage.removeItem("fixcut_token"); setAuth(null); setMyRecords([]); setTab("home");}} className="w-full bg-black/5 rounded-full py-3 font-bold text-[13px]">로그아웃</button>
-            </div>
-            <div className="mt-8 text-right">
-              <button onClick={async()=>{
+                <button onClick={()=>{setEditMode(true); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="w-full flex justify-between items-center px-4 py-3 text-[13px]"><span>내 정보 수정</span><span className="text-black/30">›</span></button>
+                <button onClick={()=>{setEditMode(true); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="w-full flex justify-between items-center px-4 py-3 text-[13px]"><span>비밀번호 변경</span><span className="text-black/30">›</span></button>
+                <button onClick={()=>{localStorage.removeItem("fixcut_auth"); localStorage.removeItem("fixcut_token"); setAuth(null); setMyRecords([]); setTab("home");}} className="w-full flex justify-between items-center px-4 py-3 text-[13px]"><span>로그아웃</span><span className="text-black/30">›</span></button>
+                <button onClick={async()=>{
                 if(!confirm("정말 탈퇴하시겠어요?\n회원 정보와 진단 기록이 모두 삭제되며 되돌릴 수 없습니다.")) return;
                 const pw = prompt("확인을 위해 현재 비밀번호를 입력해 주세요");
                 if(!pw) return;
@@ -540,7 +530,19 @@ export default function Page(){
                 ["fixcut_auth","fixcut_token","fixcut_ref_code","fixcut_diag_form","fixcut_diag_result","fixcut_diag_step","fixcut_tab"].forEach(k=>localStorage.removeItem(k));
                 setAuth(null); setMyRecords([]); setResult(null); setEditMode(false); setTab("home");
                 alert("탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.");
-              }} className="text-[11px] text-black/40 underline">회원 탈퇴</button>
+              }} className="w-full flex justify-between items-center px-4 py-3 text-[13px] text-red-500"><span>회원 탈퇴</span><span>›</span></button>
+              </div>
+            </div>
+            <div className="mt-8"><h3 className="font-black text-[15px]">약관 및 정책</h3>
+              <div className="mt-3 border rounded-2xl divide-y">
+                {["이용약관","개인정보 처리방침","추천·혜택 약관","마케팅 정보 수신 동의"].map(t=>
+                  <div key={t} className="flex justify-between items-center px-4 py-3 text-[13px]"><span>{t}</span><span className="text-[11px] text-black/40">준비 중</span></div>)}
+              </div>
+              <h3 className="font-black text-[15px] mt-6">고객 지원</h3>
+              <div className="mt-3 border rounded-2xl divide-y">
+                <div className="flex justify-between items-center px-4 py-3 text-[13px]"><span>문의하기</span><span className="text-[11px] text-black/40">준비 중</span></div>
+                <div className="flex justify-between items-center px-4 py-3 text-[13px]"><span>앱 버전</span><span className="text-[11px] text-black/40">1.0.0</span></div>
+              </div>
             </div>
 
             {editMode && <div className="mt-6 bg-gray-50 rounded-[24px] p-6 border">
