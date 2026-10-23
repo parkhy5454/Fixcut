@@ -101,6 +101,32 @@ export default function Page(){
     }
   }, [auth]);
 
+  // 진단 입력값, 결과, 현재 탭을 브라우저에 저장해 새로고침해도 유지한다
+  const [hydrated,setHydrated]=useState(false);
+  useEffect(()=>{
+    try{
+      const f=localStorage.getItem("fixcut_diag_form");
+      if(f) setForm(JSON.parse(f));
+      const r=localStorage.getItem("fixcut_diag_result");
+      if(r) setResult(JSON.parse(r));
+      const st=localStorage.getItem("fixcut_diag_step");
+      if(st) setStep(Number(st));
+      const t=localStorage.getItem("fixcut_tab");
+      if(t && t!=="admin") setTab(t);
+    }catch(e){}
+    setHydrated(true);
+  },[]);
+  useEffect(()=>{
+    if(!hydrated) return;
+    try{
+      localStorage.setItem("fixcut_diag_form", JSON.stringify(form));
+      localStorage.setItem("fixcut_diag_step", String(step));
+      if(tab!=="admin") localStorage.setItem("fixcut_tab", tab);
+      if(result) localStorage.setItem("fixcut_diag_result", JSON.stringify(result));
+      else localStorage.removeItem("fixcut_diag_result");
+    }catch(e){}
+  },[hydrated, form, step, tab, result]);
+
   const isAdmin = auth && (
     auth.email === "parkhy5454@gmail.com" ||
     auth.email === "admin@fixcut.com" ||
