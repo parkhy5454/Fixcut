@@ -428,7 +428,8 @@ export default function Page(){
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-4 text-[11px] text-black/40 leading-relaxed">※ 추정치입니다. 알뜰폰 요금은 데이터 15GB 이하 기준 19,900원(초과 29,700원), 대환 기준금리는 3.2%로 가정하고, 대출 원금 전체를 금리 차이만큼 낮춘다고 계산했습니다. 기준일 2026-10-23, 실제 조건과 결과는 다를 수 있습니다.</div>
+                <div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
         {tab==="referral" && <div className="mt-6">
           <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
@@ -491,6 +492,22 @@ export default function Page(){
                       </div>;
                     })()}
                   </div>)}</div>}
+            </div>
+
+            <div className="mt-8 text-right">
+              <button onClick={async()=>{
+                if(!confirm("정말 탈퇴하시겠어요?\n회원 정보와 진단 기록이 모두 삭제되며 되돌릴 수 없습니다.")) return;
+                const pw = prompt("확인을 위해 현재 비밀번호를 입력해 주세요");
+                if(!pw) return;
+                try{
+                  const res = await fetch("/api/auth/withdraw", {method:"POST", headers:{"Content-Type":"application/json", ...authHeaders()}, body:JSON.stringify({currentPassword:pw})});
+                  const data = await res.json().catch(()=>({}));
+                  if(!res.ok || !data.ok){ alert("탈퇴 실패: "+(data.error||"다시 시도해 주세요")); return; }
+                }catch(e){ alert("네트워크 오류로 탈퇴하지 못했습니다"); return; }
+                ["fixcut_auth","fixcut_token","fixcut_ref_code","fixcut_diag_form","fixcut_diag_result","fixcut_diag_step","fixcut_tab"].forEach(k=>localStorage.removeItem(k));
+                setAuth(null); setMyRecords([]); setResult(null); setEditMode(false); setTab("home");
+                alert("탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.");
+              }} className="text-[11px] text-black/40 underline">회원 탈퇴</button>
             </div>
 
             {editMode && <div className="mt-6 bg-gray-50 rounded-[24px] p-6 border">
