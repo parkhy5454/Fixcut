@@ -84,7 +84,7 @@ export default function Page(){
       fetch("/api/auth/me?email="+encodeURIComponent(saved.email))
         .then(r=>r.json())
         .then(d=>{
-          if(!d.ok||!d.user) return;
+          if(!d.ok||!d.user||d.mock) return;
           const fresh={name:d.user.name, phone:d.user.phone, email:d.user.email};
           localStorage.setItem("fixcut_auth", JSON.stringify(fresh));
           setAuth(fresh);
@@ -114,8 +114,12 @@ export default function Page(){
       alert("이름, 핸드폰, 이메일은 필수입니다");
       return;
     }
+    if(!editForm.password){
+      alert("정보를 수정하려면 현재 비밀번호를 입력해 주세요");
+      return;
+    }
     try{
-      const res = await fetch("/api/auth/update", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({oldEmail:auth.email, name, phone, email, newPassword:editForm.newPassword})});
+      const res = await fetch("/api/auth/update", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({oldEmail:auth.email, currentPassword:editForm.password, name, phone, email, newPassword:editForm.newPassword})});
       const data = await res.json().catch(()=>({}));
       if(!res.ok || !data.ok){
         alert("정보 변경 실패: "+(data.error||"다시 시도해 주세요"));
@@ -161,10 +165,12 @@ export default function Page(){
       alert("네트워크 오류입니다. 다시 시도해 주세요");
       return;
     }
+    // DB가 설정되지 않은 환경(mock)의 응답은 저장하지 않고, 입력값을 사용한다
+    const srv = data.mock ? null : data.user;
     const user = {
-      name: data.user?.name ?? authForm.name.trim(),
-      phone: data.user?.phone ?? authForm.phone.trim(),
-      email: data.user?.email ?? authForm.email.trim().toLowerCase(),
+      name: srv?.name ?? (isSignup ? authForm.name.trim() : authForm.email.trim().split("@")[0]),
+      phone: srv?.phone ?? authForm.phone.trim(),
+      email: srv?.email ?? authForm.email.trim().toLowerCase(),
     };
     localStorage.setItem("fixcut_auth", JSON.stringify(user));
     // 로그인 시에는 기존 추천 코드를 유지해야 추천 내역이 끊기지 않는다
