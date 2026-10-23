@@ -77,6 +77,25 @@ export default function Page(){
     }
   },[referralCode, auth]);
 
+  useEffect(()=>{
+    try{
+      const s=localStorage.getItem("fixcut_auth");
+      if(!s) return;
+      const saved=JSON.parse(s);
+      if(!saved.email) return;
+      fetch("/api/auth/me?email="+encodeURIComponent(saved.email))
+        .then(r=>r.json())
+        .then(d=>{
+          if(!d.ok||!d.user) return;
+          const fresh={name:d.user.name, phone:d.user.phone, email:d.user.email};
+          localStorage.setItem("fixcut_auth", JSON.stringify(fresh));
+          setAuth(fresh);
+          setEditForm(prev=>({...prev, name:fresh.name, phone:fresh.phone, email:fresh.email}));
+        })
+        .catch(()=>{});
+    }catch(e){}
+  },[]);
+
   const isAdmin = auth && (
     auth.email === "parkhy5454@gmail.com" ||
     auth.email === "admin@fixcut.com" ||
@@ -90,18 +109,82 @@ export default function Page(){
   };
 
   const handleUpdate = async () => {
-    if(!editForm.name || !editForm.phone || !editForm.email){
+    const name = editForm.name.trim();
+    const phone = editForm.phone.trim();
+    const email = editForm.email.trim().toLowerCase();
+    if(!name || !phone || !email){
       alert("이름, 핸드폰, 이메일은 필수입니다");
       return;
     }
-    const newAuth = {name:editForm.name, phone:editForm.phone, email:editForm.email};
+    try{
+      const res = await fetch("/api/auth/update", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({oldEmail:auth.email, name, phone, email, newPassword:editForm.newPassword})});
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok){
+        alert("정보 변경 실패: "+(data.error||"다시 시도해 주세요"));
+        return;
+      }
+    }catch(e){
+      alert("네트워크 오류로 저장하지 못했습니다");
+      return;
+    }
+    const newAuth = {name, phone, email};
     localStorage.setItem("fixcut_auth", JSON.stringify(newAuth));
     setAuth(newAuth);
-    try{
-      await fetch("/api/auth/update", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({oldEmail:auth.email, ...editForm})});
-    }catch(e){}
+    setEditForm({name, phone, email, password:"", newPassword:""});
     alert("정보가 변경되었습니다");
     setEditMode(false);
+  };
+
+  // 회원가입/로그인: 서버 응답을 확인한 뒤, 서버가 돌려준 회원 정보를 저장한다.
+  const submitAuth = async () => {
+    const isSignup = showAuth === "signup";
+    if(isSignup && (!authForm.name.trim() || !authForm.phone.trim() || !authForm.email.trim() || !authForm.password)){
+      alert("모두 입력해 주세요");
+      return;
+    }
+    if(!isSignup && (!authForm.email.trim() || !authForm.password)){
+      alert("이메일과 비밀번호를 입력해 주세요");
+      return;
+    }
+    const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
+    const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
+    const body = isSignup
+      ? {name:authForm.name.trim(), phone:authForm.phone.trim(), email:authForm.email.trim(), password:authForm.password}
+      : {email:authForm.email.trim(), password:authForm.password};
+    let data;
+    try{
+      const res = await fetch(endpoint, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+      data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok){
+        alert(isSignup ? "회원가입 실패: "+(data.error||"다시 시도해 주세요") : "이메일 또는 비밀번호가 올바르지 않습니다");
+        return;
+      }
+    }catch(e){
+      alert("네트워크 오류입니다. 다시 시도해 주세요");
+      return;
+    }
+    const user = {
+      name: data.user?.name ?? authForm.name.trim(),
+      phone: data.user?.phone ?? authForm.phone.trim(),
+      email: data.user?.email ?? authForm.email.trim().toLowerCase(),
+    };
+    localStorage.setItem("fixcut_auth", JSON.stringify(user));
+    // 로그인 시에는 기존 추천 코드를 유지해야 추천 내역이 끊기지 않는다
+    const existingCode = localStorage.getItem("fixcut_ref_code");
+    const code = (!isSignup && existingCode) ? existingCode
+      : (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
+    localStorage.setItem("fixcut_ref_code", code);
+    setReferralCode(code);
+    setAuth(user);
+    setEditForm({name:user.name, phone:user.phone, email:user.email, password:"", newPassword:""});
+    setShowAuth(null);
+    if(isSignup && incomingRef){
+      try{
+        await fetch("/api/referral", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({referrerCode:incomingRef, referredName:user.name, referredEmail:user.email})});
+        localStorage.removeItem("fixcut_incoming_ref");
+      }catch(e){}
+    }
+    if(user.email==="admin@fixcut.com"||user.email.includes("parkhy")){ setTimeout(()=>{setTab("admin"); loadAdmin();},500);}
   };
 
   const calc=()=>{
@@ -317,27 +400,7 @@ export default function Page(){
           <input value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="이메일" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
           <input value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder="비밀번호" type="password" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
           {showAuth==="signup" && <div><div className="text-[11px] font-bold text-black/50 mb-1">친구 추천 코드 (선택)</div><input value={authForm.referralCode} onChange={e=>setAuthForm({...authForm,referralCode:e.target.value})} placeholder="추천 코드 있으면 입력" className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-[14px]"/><div className="text-[10px] text-amber-600 mt-1">추천 코드 입력하면 1만원 혜택!</div></div>}
-          <button onClick={async()=>{
-            const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
-            if(showAuth==="signup" && (!authForm.name||!authForm.phone||!authForm.email||!authForm.password)){alert("모두 입력"); return;}
-            const user={name:authForm.name||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email};
-            localStorage.setItem("fixcut_auth",JSON.stringify(user));
-            const code = (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
-            localStorage.setItem("fixcut_ref_code", code);
-            setReferralCode(code);
-            setAuth(user);
-            setShowAuth(null);
-            try{
-              if(showAuth==="signup"){
-                await fetch("/api/auth/signup", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...authForm, name:user.name})});
-                if(incomingRef){
-                  await fetch("/api/referral", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({referrerCode:incomingRef, referredName:user.name, referredEmail:user.email})});
-                  localStorage.removeItem("fixcut_incoming_ref");
-                }
-              }
-            }catch(e){}
-            if(user.email==="admin@fixcut.com"||user.email?.includes("parkhy")){ setTimeout(()=>{setTab("admin"); loadAdmin();},500);}
-          }} className="w-full bg-black text-white rounded-full py-4 font-bold">{showAuth==="signup"?"가입하기 (1만원 혜택)":"로그인"}</button>
+          <button onClick={submitAuth} className="w-full bg-black text-white rounded-full py-4 font-bold">{showAuth==="signup"?"가입하기 (1만원 혜택)":"로그인"}</button>
         </div>
       </div></div>}
 
