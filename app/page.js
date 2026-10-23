@@ -513,6 +513,17 @@ export default function Page(){
             </div>
 
 
+            <div className="mt-8"><h3 className="font-black text-[15px]">약관 및 정책</h3>
+              <div className="mt-3 border rounded-2xl divide-y">
+                {["이용약관","개인정보 처리방침","추천·혜택 약관","마케팅 정보 수신 동의"].map(t=>
+                  <div key={t} className="flex justify-between items-center px-4 py-3 text-[13px]"><span>{t}</span><span className="text-[11px] text-black/40">준비 중</span></div>)}
+              </div>
+              <h3 className="font-black text-[15px] mt-6">고객 지원</h3>
+              <div className="mt-3 border rounded-2xl divide-y">
+                <div className="flex justify-between items-center px-4 py-3 text-[13px]"><span>문의하기</span><span className="text-[11px] text-black/40">준비 중</span></div>
+                <div className="flex justify-between items-center px-4 py-3 text-[13px]"><span>앱 버전</span><span className="text-[11px] text-black/40">1.0.0</span></div>
+              </div>
+            </div>
             <div className="mt-6">
               <button onClick={()=>{localStorage.removeItem("fixcut_auth"); localStorage.removeItem("fixcut_token"); setAuth(null); setMyRecords([]); setTab("home");}} className="w-full bg-black/5 rounded-full py-3 font-bold text-[13px]">로그아웃</button>
             </div>
