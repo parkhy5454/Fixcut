@@ -471,10 +471,6 @@ export default function Page(){
               <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
             </div>
 
-            <div className="mt-5 bg-gradient-to-r from-amber-300 to-orange-300 rounded-2xl p-4 flex justify-between items-center">
-              <div><div className="text-[11px] font-bold">내 추천 코드</div><div className="font-black text-[16px]">{referralCode}</div><div className="text-[11px]">{myReferrals.length}명 추천 - {(myReferrals.length*10000).toLocaleString()}원 적립</div></div>
-              <button onClick={()=>setTab("referral")} className="bg-black text-white rounded-full px-4 py-2 text-[11px] font-bold">자세히</button>
-            </div>
 
             <div className="mt-6">
               <h3 className="font-black text-[16px]">내 진단 기록</h3>
