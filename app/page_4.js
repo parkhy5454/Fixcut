@@ -302,6 +302,34 @@ export default function Page(){
               <button onClick={()=>setTab("referral")} className="bg-black text-white rounded-full px-4 py-2 text-[11px] font-bold">자세히</button>
             </div>
 
+            <div className="mt-8">
+              <h3 className="text-[18px] font-black">내가 입력한 진단 정보</h3>
+              {myDiagnoses.length===0 ? <div className="mt-3 bg-gray-50 border rounded-2xl p-6 text-center text-[13px] text-black/40">아직 진단 내역이 없어요<br/>진단하기를 진행해보세요</div> :
+              <div className="mt-3 space-y-3">
+                {myDiagnoses.map((s,i)=>(
+                  <div key={i} className="border rounded-2xl p-4 bg-white">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-[14px] text-violet-600">{(s.total||0).toLocaleString()}원 절약 가능</span>
+                      <span className="text-[10px] text-black/40">{(s.created_at||"").slice(0,16).replace("T"," ")}</span>
+                    </div>
+                    <div className="mt-2 text-[12px] space-y-1 text-black/70">
+                      <div>통신사: <b>{s.carrier||s.inputs?.carrier||"-"}</b> / {s.phone_fee||s.inputs?.phoneFee||"-"} / {s.data_usage||s.inputs?.dataUsage||"-"}GB</div>
+                      <div>OTT: <b>{(() => { const ott = s.ott||s.inputs?.ott||{}; const o = typeof ott==="string"?JSON.parse(ott):ott; return Object.keys(o).filter(k=>o[k]).join(", ")||"없음"; })()}</b></div>
+                      <div>대출: <b>{(() => { const loans = s.loans||s.inputs?.loans||[]; const l = typeof loans==="string"?JSON.parse(loans):loans; if(!l.length) return "없음"; return l.map(x=>`${x.institution||"대출"} ${x.amount||""} ${x.rate||""}%`).join(" | "); })()}</b></div>
+                    </div>
+                    <div className="mt-3 bg-gray-50 rounded-xl p-3">
+                      {(s.details||[]).map((d,j)=><div key={j} className="text-[11px] flex justify-between py-1"><span>{d.title}</span><b>{d.save?.toLocaleString()}원</b></div>)}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={()=>{ const inputs = s.inputs||{carrier:s.carrier, phoneFee:s.phone_fee, dataUsage:s.data_usage, ott:s.ott, loans:s.loans}; const ottObj = typeof inputs.ott==="string"?JSON.parse(inputs.ott):inputs.ott||{}; const loansArr = typeof inputs.loans==="string"?JSON.parse(inputs.loans):inputs.loans||[]; setForm({name:s.name||auth?.name||"", carrier:inputs.carrier||"KT", phoneFee:inputs.phoneFee||inputs.phone_fee||"69,000", dataUsage:inputs.dataUsage||inputs.data_usage||"11", ott:ottObj?.netflix!==undefined?ottObj:{netflix:false,youtube:false,disney:false,wavve:false,tving:false}, loans:loansArr.length?loansArr:[{institution:"", amount:"", rate:""}]}); setTab("diag"); setStep(2); }} className="flex-1 bg-black text-white rounded-full py-2.5 text-[12px] font-bold">수정하기</button>
+                      <button onClick={()=>{ if(!confirm("이 진단 내역을 삭제할까요?")) return; const updated = myDiagnoses.filter((_,idx)=>idx!==i); setMyDiagnoses(updated); localStorage.setItem("fixcut_my_diagnoses", JSON.stringify(updated)); }} className="flex-1 bg-black/5 rounded-full py-2.5 text-[12px] font-bold">삭제</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              }
+            </div>
+
             {editMode && <div className="mt-6 bg-gray-50 rounded-[24px] p-6 border">
               <h3 className="font-black text-[16px]">내 정보 수정</h3>
               <div className="mt-4 space-y-3">
