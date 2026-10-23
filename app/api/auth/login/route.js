@@ -9,5 +9,8 @@ export async function POST(req){
     const rows = await sql`SELECT id, name, phone, email FROM users WHERE LOWER(email)=${cleanEmail} AND password=${password} LIMIT 1`;
     if(rows.length===0) return Response.json({ok:false,error:"not found"},{status:401});
     return Response.json({ok:true,user:rows[0]});
-  }catch(e){ console.error(e); return Response.json({ok:false,error:String(e)},{status:500}); }
+  }catch(e){
+    console.error(e);
+    return Response.json({ok:false,error:String(e)},{status:500});
+  }
 }
