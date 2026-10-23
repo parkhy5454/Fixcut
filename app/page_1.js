@@ -57,6 +57,7 @@ export default function Page(){
       if(s){
         const u=JSON.parse(s);
         setAuth(u);
+        setForm(prev=>({...prev, name:u.name||prev.name}));
         setEditForm({name:u.name||"",phone:u.phone||"",email:u.email||"",password:"",newPassword:""});
         const code = (u.email?.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
         setReferralCode(localStorage.getItem("fixcut_ref_code")||code);
@@ -155,7 +156,16 @@ export default function Page(){
         </div>
 
         {tab==="home" && <div className="mt-8">
-          <div className="bg-black text-white rounded-[28px] p-7"><h1 className="text-[30px] font-black leading-[1.1]">매달 새는<br/>고정비 67만원,<br/><span className="text-violet-400">19.4만원 찾아드려요</span></h1><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-6 bg-white text-black rounded-full px-6 py-3.5 font-black w-full">무료 진단 시작하기</button></div>
+          <div className="bg-black text-white rounded-[28px] p-7"><h1 className="text-[30px] font-black leading-[1.1]">매달 새는<br/>고정비 67만원,<br/><span className="text-violet-400">19.4만원 찾아드려요</span></h1><button onClick={()=>{
+            if(auth?.name){
+              setForm(prev=>({...prev, name:auth.name}));
+              setTab("diag"); 
+              setStep(2);
+            } else {
+              setTab("diag"); 
+              setStep(1);
+            }
+          }} className="mt-6 bg-white text-black rounded-full px-6 py-3.5 font-black w-full">무료 진단 시작하기</button></div>
           {auth && <div className="mt-4 bg-gradient-to-br from-amber-300 to-orange-400 rounded-[24px] p-5 flex justify-between items-center"><div><div className="text-[11px] font-black bg-black text-white px-2 py-0.5 rounded-full inline-block">친구 추천 이벤트</div><div className="font-black text-[16px] mt-2 leading-tight">친구 추천하면<br/>둘 다 1만원 지급!</div><div className="text-[11px] mt-1 opacity-70">내 코드: {referralCode}</div></div><button onClick={()=>setTab("referral")} className="bg-black text-white rounded-full px-4 py-2.5 text-[12px] font-black">공유하기</button></div>}
         </div>}
 
@@ -234,7 +244,7 @@ export default function Page(){
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details,inputs:{carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans},carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
           </div>}
         </div>}
 
@@ -301,8 +311,7 @@ export default function Page(){
 
         {tab==="admin" && <div className="mt-6">
           {!isAdmin ? <div className="text-center py-20"><div className="font-black">관리자만 접근 가능</div></div> :
-          <div><h2 className="text-[26px] font-black">관리자 대시보드</h2><div className="mt-4 grid grid-cols-3 gap-2"><div className="bg-black text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">총 회원</div><div className="text-[22px] font-black">{adminData.users.length}명</div></div><div className="bg-violet-600 text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">절약 진단</div><div className="text-[22px] font-black">{adminData.savings.length}건</div></div><div className="bg-amber-400 text-black rounded-2xl p-4"><div className="text-[11px]">추천</div><div className="text-[22px] font-black">{adminData.referrals?.length||0}건</div></div></div><div className="mt-6"><div className="flex justify-between"><h3 className="font-black">회원 목록</h3><button onClick={loadAdmin} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">새로고침</button></div><div className="mt-3 space-y-2">{adminData.users.map(u=><div key={u.id} className="border rounded-2xl p-4"><div className="flex justify-between"><span className="font-bold">{u.name}</span><span className="text-[11px] text-black/40">{u.created_at?.slice(0,10)}</span></div><div className="text-[12px] text-black/50 mt-1">{u.phone} | {u.email}</div></div>)}</div>
-          <div className="mt-8"><h3 className="font-black">진단 저장 내역 ({adminData.savings?.length||0}건)</h3><div className="mt-3 space-y-3">{(adminData.savings||[]).map(s=><div key={s.id} className="border rounded-2xl p-4 bg-gray-50"><div className="flex justify-between"><span className="font-bold text-[14px]">{s.name} - {s.total?.toLocaleString()}원 절약</span><span className="text-[10px] text-black/40">{s.created_at?.slice(0,16)}</span></div><div className="text-[11px] text-black/60 mt-2 space-y-1"><div>통신: {s.carrier||s.inputs?.carrier} / {s.phone_fee||s.inputs?.phoneFee} / {s.data_usage||s.inputs?.dataUsage}GB</div><div>OTT: {s.ott?Object.keys(typeof s.ott==='string'?JSON.parse(s.ott):s.ott).filter(k=> (typeof s.ott==='string'?JSON.parse(s.ott):s.ott)[k]).join(", "):""} {s.inputs?.ott?Object.keys(s.inputs.ott).filter(k=>s.inputs.ott[k]).join(", "):""}</div><div>대출: {(s.loans? (typeof s.loans==='string'?JSON.parse(s.loans):s.loans) : s.inputs?.loans||[]).map(l=> (l.institution||"대출")+" "+(l.amount||"")+" "+(l.rate||"")+"%").join(" | ")}</div><div className="mt-2 bg-white rounded-xl p-2"><div className="font-bold text-[11px]">절약 상세</div>{(s.details? (typeof s.details==='string'?JSON.parse(s.details):s.details):[]).map((d,i)=><div key={i} className="text-[11px]">- {d.title}: {d.save?.toLocaleString()}원</div>)}</div></div></div>)}</div></div></div></div>}
+          <div><h2 className="text-[26px] font-black">관리자 대시보드</h2><div className="mt-4 grid grid-cols-3 gap-2"><div className="bg-black text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">총 회원</div><div className="text-[22px] font-black">{adminData.users.length}명</div></div><div className="bg-violet-600 text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">절약 진단</div><div className="text-[22px] font-black">{adminData.savings.length}건</div></div><div className="bg-amber-400 text-black rounded-2xl p-4"><div className="text-[11px]">추천</div><div className="text-[22px] font-black">{adminData.referrals?.length||0}건</div></div></div><div className="mt-6"><div className="flex justify-between"><h3 className="font-black">회원 목록</h3><button onClick={loadAdmin} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">새로고침</button></div><div className="mt-3 space-y-2">{adminData.users.map(u=><div key={u.id} className="border rounded-2xl p-4"><div className="flex justify-between"><span className="font-bold">{u.name}</span><span className="text-[11px] text-black/40">{u.created_at?.slice(0,10)}</span></div><div className="text-[12px] text-black/50 mt-1">{u.phone} | {u.email}</div></div>)}</div></div></div>}
         </div>}
       </div>
 
@@ -321,6 +330,7 @@ export default function Page(){
             localStorage.setItem("fixcut_ref_code", code);
             setReferralCode(code);
             setAuth(user);
+            setForm(prev=>({...prev, name:user.name}));
             setShowAuth(null);
             try{
               if(showAuth==="signup"){
