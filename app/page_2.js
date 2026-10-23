@@ -44,7 +44,6 @@ export default function Page(){
     loanInstitution:"", loanAmount:"30,000,000", loanRate:"4.8"
   });
   const [result,setResult]=useState(null);
-  const [myDiagnoses,setMyDiagnoses]=useState([]);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
   const [editMode,setEditMode]=useState(false);
   const [editForm,setEditForm]=useState({name:"",phone:"",email:"",password:"",newPassword:""});
@@ -52,17 +51,6 @@ export default function Page(){
   const [myReferrals,setMyReferrals]=useState([]);
   const [copied,setCopied]=useState(false);
 
-  useEffect(()=>{
-    try{
-      const saved = localStorage.getItem("fixcut_my_diagnoses");
-      if(saved) setMyDiagnoses(JSON.parse(saved));
-      const authStr = localStorage.getItem("fixcut_auth");
-      if(authStr){
-        const u = JSON.parse(authStr);
-        fetch(`/api/my-diagnoses?phone=${encodeURIComponent(u.phone||"")}&email=${encodeURIComponent(u.email||"")}`).then(r=>r.json()).then(d=>{ if(d.savings?.length) { setMyDiagnoses(d.savings); localStorage.setItem("fixcut_my_diagnoses", JSON.stringify(d.savings)); }}).catch(()=>{});
-      }
-    }catch(e){}
-  },[]);
   useEffect(()=>{
     try{
       const s=localStorage.getItem("fixcut_auth");
@@ -190,12 +178,12 @@ export default function Page(){
                   <input value={form.phoneFee} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,phoneFee:""}); return;} const num=Number(raw); setForm({...form,phoneFee:formatComma(num)});}} placeholder="69,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
-                
+                <div className="text-[11px] text-black/40 mt-1">숫자만 입력하면 천단위 자동 표시, 0까지 모두 삭제 가능</div>
               </div>
               <div>
                 <div className="text-[12px] font-bold mb-2">월 데이터 사용량</div>
                 <div className="relative">
-                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="실제 데이터 사용량 입력" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="11" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">GB</span>
                 </div>
               </div>
@@ -246,7 +234,7 @@ export default function Page(){
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details,inputs:{carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans},carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
           </div>}
         </div>}
 
@@ -313,7 +301,8 @@ export default function Page(){
 
         {tab==="admin" && <div className="mt-6">
           {!isAdmin ? <div className="text-center py-20"><div className="font-black">관리자만 접근 가능</div></div> :
-          <div><h2 className="text-[26px] font-black">관리자 대시보드</h2><div className="mt-4 grid grid-cols-3 gap-2"><div className="bg-black text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">총 회원</div><div className="text-[22px] font-black">{adminData.users.length}명</div></div><div className="bg-violet-600 text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">절약 진단</div><div className="text-[22px] font-black">{adminData.savings.length}건</div></div><div className="bg-amber-400 text-black rounded-2xl p-4"><div className="text-[11px]">추천</div><div className="text-[22px] font-black">{adminData.referrals?.length||0}건</div></div></div><div className="mt-6"><div className="flex justify-between"><h3 className="font-black">회원 목록</h3><button onClick={loadAdmin} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">새로고침</button></div><div className="mt-3 space-y-2">{adminData.users.map(u=><div key={u.id} className="border rounded-2xl p-4"><div className="flex justify-between"><span className="font-bold">{u.name}</span><span className="text-[11px] text-black/40">{u.created_at?.slice(0,10)}</span></div><div className="text-[12px] text-black/50 mt-1">{u.phone} | {u.email}</div></div>)}</div></div></div>}
+          <div><h2 className="text-[26px] font-black">관리자 대시보드</h2><div className="mt-4 grid grid-cols-3 gap-2"><div className="bg-black text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">총 회원</div><div className="text-[22px] font-black">{adminData.users.length}명</div></div><div className="bg-violet-600 text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">절약 진단</div><div className="text-[22px] font-black">{adminData.savings.length}건</div></div><div className="bg-amber-400 text-black rounded-2xl p-4"><div className="text-[11px]">추천</div><div className="text-[22px] font-black">{adminData.referrals?.length||0}건</div></div></div><div className="mt-6"><div className="flex justify-between"><h3 className="font-black">회원 목록</h3><button onClick={loadAdmin} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">새로고침</button></div><div className="mt-3 space-y-2">{adminData.users.map(u=><div key={u.id} className="border rounded-2xl p-4"><div className="flex justify-between"><span className="font-bold">{u.name}</span><span className="text-[11px] text-black/40">{u.created_at?.slice(0,10)}</span></div><div className="text-[12px] text-black/50 mt-1">{u.phone} | {u.email}</div></div>)}</div>
+          <div className="mt-8"><h3 className="font-black">진단 저장 내역 ({adminData.savings?.length||0}건)</h3><div className="mt-3 space-y-3">{(adminData.savings||[]).map(s=><div key={s.id} className="border rounded-2xl p-4 bg-gray-50"><div className="flex justify-between"><span className="font-bold text-[14px]">{s.name} - {s.total?.toLocaleString()}원 절약</span><span className="text-[10px] text-black/40">{s.created_at?.slice(0,16)}</span></div><div className="text-[11px] text-black/60 mt-2 space-y-1"><div>통신: {s.carrier||s.inputs?.carrier} / {s.phone_fee||s.inputs?.phoneFee} / {s.data_usage||s.inputs?.dataUsage}GB</div><div>OTT: {s.ott?Object.keys(typeof s.ott==='string'?JSON.parse(s.ott):s.ott).filter(k=> (typeof s.ott==='string'?JSON.parse(s.ott):s.ott)[k]).join(", "):""} {s.inputs?.ott?Object.keys(s.inputs.ott).filter(k=>s.inputs.ott[k]).join(", "):""}</div><div>대출: {(s.loans? (typeof s.loans==='string'?JSON.parse(s.loans):s.loans) : s.inputs?.loans||[]).map(l=> (l.institution||"대출")+" "+(l.amount||"")+" "+(l.rate||"")+"%").join(" | ")}</div><div className="mt-2 bg-white rounded-xl p-2"><div className="font-bold text-[11px]">절약 상세</div>{(s.details? (typeof s.details==='string'?JSON.parse(s.details):s.details):[]).map((d,i)=><div key={i} className="text-[11px]">- {d.title}: {d.save?.toLocaleString()}원</div>)}</div></div></div>)}</div></div></div></div>}
         </div>}
       </div>
 

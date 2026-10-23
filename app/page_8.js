@@ -34,6 +34,14 @@ const Icons = {
 
 export default function Page(){
   const [tab,setTab]=useState("home");
+  const getDisplayName = (u)=>{
+    if(!u) return "";
+    // if name is email-like or same as username part, try realName
+    if(u.realName) return u.realName;
+    const n = u.name||"";
+    if(n.includes("@")) return u.email?.split("@")[0]||n;
+    return n;
+  };
   const [auth,setAuth]=useState(null);
   const [showAuth,setShowAuth]=useState(null);
   const [authForm,setAuthForm]=useState({name:"",phone:"",email:"",password:"",referralCode:""});
@@ -53,17 +61,10 @@ export default function Page(){
 
   useEffect(()=>{
     try{
-      const last = localStorage.getItem("fixcut_last_result");
-      if(last){ setResult(JSON.parse(last)); }
-    }catch(e){}
-  },[]);
-  useEffect(()=>{
-    try{
       const s=localStorage.getItem("fixcut_auth");
       if(s){
         const u=JSON.parse(s);
         setAuth(u);
-        setForm(prev=>({...prev, name:u.name||prev.name}));
         setEditForm({name:u.name||"",phone:u.phone||"",email:u.email||"",password:"",newPassword:""});
         const code = (u.email?.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
         setReferralCode(localStorage.getItem("fixcut_ref_code")||code);
@@ -77,6 +78,16 @@ export default function Page(){
       }
     }catch(e){}
   },[]);
+
+  useEffect(()=>{
+    if(tab==="diag" && auth && step===1){
+      const dName=getDisplayName(auth);
+      if(dName){
+        setForm(prev=>({...prev, name:dName}));
+        setStep(2);
+      }
+    }
+  },[tab, auth]);
 
   useEffect(()=>{
     if(referralCode && auth){
@@ -162,16 +173,7 @@ export default function Page(){
         </div>
 
         {tab==="home" && <div className="mt-8">
-          <div className="bg-black text-white rounded-[28px] p-7"><h1 className="text-[30px] font-black leading-[1.1]">매달 새는<br/>고정비 67만원,<br/><span className="text-violet-400">19.4만원 찾아드려요</span></h1><button onClick={()=>{
-            if(auth?.name){
-              setForm(prev=>({...prev, name:auth.name}));
-              setTab("diag"); 
-              setStep(2);
-            } else {
-              setTab("diag"); 
-              setStep(1);
-            }
-          }} className="mt-6 bg-white text-black rounded-full px-6 py-3.5 font-black w-full">무료 진단 시작하기</button></div>
+          <div className="bg-black text-white rounded-[28px] p-7"><h1 className="text-[30px] font-black leading-[1.1]">매달 새는<br/>고정비 67만원,<br/><span className="text-violet-400">19.4만원 찾아드려요</span></h1><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-6 bg-white text-black rounded-full px-6 py-3.5 font-black w-full">무료 진단 시작하기</button></div>
           {auth && <div className="mt-4 bg-gradient-to-br from-amber-300 to-orange-400 rounded-[24px] p-5 flex justify-between items-center"><div><div className="text-[11px] font-black bg-black text-white px-2 py-0.5 rounded-full inline-block">친구 추천 이벤트</div><div className="font-black text-[16px] mt-2 leading-tight">친구 추천하면<br/>둘 다 1만원 지급!</div><div className="text-[11px] mt-1 opacity-70">내 코드: {referralCode}</div></div><button onClick={()=>setTab("referral")} className="bg-black text-white rounded-full px-4 py-2.5 text-[12px] font-black">공유하기</button></div>}
         </div>}
 
@@ -182,7 +184,7 @@ export default function Page(){
           {step===1 && <div className="mt-8"><h2 className="text-[26px] font-black">이름을 알려주세요</h2><p className="text-[13px] text-black/50 mt-1">절약 결과를 저장할 때 필요해요</p><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="박현용" className="mt-4 w-full bg-gray-50 border rounded-2xl px-6 py-5 text-[18px] font-bold"/><button onClick={()=>{if(!form.name) return alert("이름 입력"); setStep(2);}} className="mt-6 w-full bg-black text-white rounded-full py-4 font-bold">다음</button></div>}
 
           {step===2 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">통신비 정보를<br/>입력해주세요</h2>
+            <h2 className="text-[26px] font-black leading-tight">통신비 입력</h2>
             <div className="mt-6 space-y-5">
               <div>
                 <div className="text-[12px] font-bold mb-2">통신사</div>
@@ -194,12 +196,12 @@ export default function Page(){
                   <input value={form.phoneFee} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,phoneFee:""}); return;} const num=Number(raw); setForm({...form,phoneFee:formatComma(num)});}} placeholder="69,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
-                <div className="text-[11px] text-black/40 mt-1">숫자만 입력하면 천단위 자동 표시, 0까지 모두 삭제 가능</div>
+                
               </div>
               <div>
                 <div className="text-[12px] font-bold mb-2">월 데이터 사용량</div>
                 <div className="relative">
-                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="11" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="실제 사용 데이터 입력" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">GB</span>
                 </div>
               </div>
@@ -216,8 +218,8 @@ export default function Page(){
           ].map(k=><label key={k.key} className={"flex items-center justify-between p-4 border rounded-2xl cursor-pointer "+(form.ott[k.key]?"bg-black text-white border-black":"bg-white")}><div className="flex items-center gap-3"><input type="checkbox" checked={form.ott[k.key]} onChange={e=>setForm({...form,ott:{...form.ott,[k.key]:e.target.checked}})} className="w-5 h-5"/><span className="font-bold text-[14px]">{k.name}</span></div><span className={"text-[12px] "+(form.ott[k.key]?"text-white/60":"text-black/40")}>{k.price}</span></label>)}</div><div className="mt-6 flex gap-2"><button onClick={()=>setStep(2)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>setStep(4)} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음</button></div></div>}
 
           {step===4 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">대출 정보를<br/>입력해주세요</h2>
-            <p className="text-[13px] text-black/50 mt-1">없으면 비워두고 결과 보기 가능</p>
+            <h2 className="text-[26px] font-black leading-tight">대출 정보 입력</h2>
+            
             <div className="mt-6 space-y-5">
               <div>
                 <div className="text-[12px] font-bold mb-2">대출 기관</div>
@@ -250,7 +252,7 @@ export default function Page(){
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); try{ localStorage.setItem("fixcut_last_result", JSON.stringify(r)); localStorage.setItem("fixcut_last_form", JSON.stringify(form)); }catch(e){} setTab("saving"); try{ const prev = JSON.parse(localStorage.getItem("fixcut_my_diagnoses")||"[]"); const payload={...r, total:r.total, details:r.details, inputs:{carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans}, carrier:form.carrier, phoneFee:form.phoneFee, dataUsage:form.dataUsage, ott:form.ott, loans:form.loans, created_at:new Date().toISOString(), name:form.name, phone:auth?.phone||""}; const updated=[payload, ...prev].slice(0,10); localStorage.setItem("fixcut_my_diagnoses", JSON.stringify(updated)); setMyDiagnoses(updated); }catch(e){}  try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
           </div>}
         </div>}
 
@@ -293,7 +295,13 @@ export default function Page(){
                 <div className="text-[13px] text-black/50 mt-1">{auth.email}</div>
                 <div className="text-[12px] text-black/40">{auth.phone}</div>
               </div>
-              <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
+              <button onClick={()=>{
+          if(auth && tab!=="diag"){
+            const dName=getDisplayName(auth);
+            if(dName) setForm(prev=>({...prev, name:dName}));
+          }
+        }} style={{display:"none"}}></button>
+        <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
             </div>
 
             <div className="mt-5 bg-gradient-to-r from-amber-300 to-orange-300 rounded-2xl p-4 flex justify-between items-center">
@@ -330,13 +338,12 @@ export default function Page(){
           <button onClick={async()=>{
             const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
             if(showAuth==="signup" && (!authForm.name||!authForm.phone||!authForm.email||!authForm.password)){alert("모두 입력"); return;}
-            const user={name:authForm.name||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email};
+            const user={name:(authForm.name||"").trim()||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email, realName:(authForm.name||"").trim()};
             localStorage.setItem("fixcut_auth",JSON.stringify(user));
             const code = (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
             localStorage.setItem("fixcut_ref_code", code);
             setReferralCode(code);
             setAuth(user);
-            setForm(prev=>({...prev, name:user.name}));
             setShowAuth(null);
             try{
               if(showAuth==="signup"){

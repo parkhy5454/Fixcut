@@ -34,6 +34,7 @@ const Icons = {
 
 export default function Page(){
   const [tab,setTab]=useState("home");
+  const getDisplayName = (u)=>{ if(!u) return ""; if(u.realName) return u.realName; const n=u.name||""; if(n.includes("@")) return u.email?.split("@")[0]||n; return n; };
   const [auth,setAuth]=useState(null);
   const [showAuth,setShowAuth]=useState(null);
   const [authForm,setAuthForm]=useState({name:"",phone:"",email:"",password:"",referralCode:""});
@@ -44,6 +45,7 @@ export default function Page(){
     loans:[{institution:"", amount:"30,000,000", rate:"4.8"}]
   });
   const [result,setResult]=useState(null);
+  const [myDiagnoses,setMyDiagnoses]=useState([]);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
   const [editMode,setEditMode]=useState(false);
   const [editForm,setEditForm]=useState({name:"",phone:"",email:"",password:"",newPassword:""});
@@ -51,6 +53,15 @@ export default function Page(){
   const [myReferrals,setMyReferrals]=useState([]);
   const [copied,setCopied]=useState(false);
 
+  useEffect(()=>{
+    try{
+      const saved = localStorage.getItem("fixcut_my_diagnoses");
+      if(saved) setMyDiagnoses(JSON.parse(saved));
+    }catch(e){}
+  },[]);
+  useEffect(()=>{
+    if(tab==="diag" && auth && step===1){ const dName=getDisplayName(auth); if(dName){ setForm(prev=>({...prev, name:dName})); setStep(2); } }
+  },[tab, auth]);
   useEffect(()=>{
     try{
       const s=localStorage.getItem("fixcut_auth");
@@ -153,7 +164,7 @@ export default function Page(){
       <div className="max-w-[480px] mx-auto px-5 py-5">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2"><div className="w-7 h-7 bg-black rounded-lg flex items-center justify-center text-white font-black">F</div><span className="font-black">FIXCUT</span>{isAdmin && <span className="ml-1 text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full">ADMIN</span>}</div>
-          <div className="flex gap-2">{auth ? <><span className="text-[12px] font-bold">{auth.name}님</span><button onClick={()=>{localStorage.removeItem("fixcut_auth"); // keep fixcut_my_diagnoses to show after re-login; setAuth(null); setTab("home");}} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">로그아웃</button></> : <><button onClick={()=>setShowAuth("login")} className="text-[12px] font-bold">로그인</button><button onClick={()=>setShowAuth("signup")} className="text-[12px] bg-black text-white px-4 py-1.5 rounded-full font-bold">회원가입</button></>}</div>
+          <div className="flex gap-2">{auth ? <><span className="text-[12px] font-bold">{auth.name}님</span><button onClick={()=>{localStorage.removeItem("fixcut_auth"); setAuth(null); setTab("home");}} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">로그아웃</button></> : <><button onClick={()=>setShowAuth("login")} className="text-[12px] font-bold">로그인</button><button onClick={()=>setShowAuth("signup")} className="text-[12px] bg-black text-white px-4 py-1.5 rounded-full font-bold">회원가입</button></>}</div>
         </div>
 
         {tab==="home" && <div className="mt-8">
@@ -168,7 +179,7 @@ export default function Page(){
           {step===1 && <div className="mt-8"><h2 className="text-[26px] font-black">이름을 알려주세요</h2><p className="text-[13px] text-black/50 mt-1">절약 결과를 저장할 때 필요해요</p><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="박현용" className="mt-4 w-full bg-gray-50 border rounded-2xl px-6 py-5 text-[18px] font-bold"/><button onClick={()=>{if(!form.name) return alert("이름 입력"); setStep(2);}} className="mt-6 w-full bg-black text-white rounded-full py-4 font-bold">다음</button></div>}
 
           {step===2 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">통신비 정보를<br/>입력해주세요</h2>
+            <h2 className="text-[26px] font-black leading-tight">통신비 입력</h2>
             <div className="mt-6 space-y-5">
               <div>
                 <div className="text-[12px] font-bold mb-2">통신사</div>
@@ -180,12 +191,12 @@ export default function Page(){
                   <input value={form.phoneFee} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,phoneFee:""}); return;} const num=Number(raw); setForm({...form,phoneFee:formatComma(num)});}} placeholder="69,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
-                <div className="text-[11px] text-black/40 mt-1">숫자만 입력하면 천단위 자동 표시, 0까지 모두 삭제 가능</div>
+                
               </div>
               <div>
                 <div className="text-[12px] font-bold mb-2">월 데이터 사용량</div>
                 <div className="relative">
-                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="11" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="실제 사용 데이터 입력" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">GB</span>
                 </div>
               </div>
@@ -202,8 +213,8 @@ export default function Page(){
           ].map(k=><label key={k.key} className={"flex items-center justify-between p-4 border rounded-2xl cursor-pointer "+(form.ott[k.key]?"bg-black text-white border-black":"bg-white")}><div className="flex items-center gap-3"><input type="checkbox" checked={form.ott[k.key]} onChange={e=>setForm({...form,ott:{...form.ott,[k.key]:e.target.checked}})} className="w-5 h-5"/><span className="font-bold text-[14px]">{k.name}</span></div><span className={"text-[12px] "+(form.ott[k.key]?"text-white/60":"text-black/40")}>{k.price}</span></label>)}</div><div className="mt-6 flex gap-2"><button onClick={()=>setStep(2)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>setStep(4)} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음</button></div></div>}
 
           {step===4 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">대출 정보를<br/>입력해주세요</h2>
-            <p className="text-[13px] text-black/50 mt-1">여러 건이면 + 버튼으로 추가 (없으면 비워두고 결과 보기)</p>
+            <h2 className="text-[26px] font-black leading-tight">대출 정보 입력</h2>
+            <p className="text-[13px] text-black/50 mt-1"></p>
             <div className="mt-6 space-y-4">
               {form.loans.map((loan, idx)=>(
                 <div key={idx} className="bg-gray-50 border rounded-[20px] p-4 relative">
@@ -240,7 +251,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details,inputs:{carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans},carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
           </div>}
         </div>}
 
