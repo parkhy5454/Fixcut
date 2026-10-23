@@ -94,6 +94,13 @@ export default function Page(){
     }catch(e){}
   },[]);
 
+  // 로그인한 회원의 이름을 진단 폼에 자동으로 채운다 (입력값이 있으면 유지)
+  useEffect(()=>{
+    if(auth?.name){
+      setForm(prev => prev.name ? prev : {...prev, name: auth.name});
+    }
+  }, [auth]);
+
   const isAdmin = auth && (
     auth.email === "parkhy5454@gmail.com" ||
     auth.email === "admin@fixcut.com" ||
