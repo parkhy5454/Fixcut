@@ -146,7 +146,11 @@ export default function Page(){
   const authHeaders = () => {
     try{
       const t = localStorage.getItem("fixcut_token");
-      return t ? {Authorization: "Bearer " + t} : {};
+      const a = JSON.parse(localStorage.getItem("fixcut_auth") || "null");
+      const h = {};
+      if(t) h.Authorization = "Bearer " + t;
+      if(a?.email) h["X-User-Email"] = a.email;
+      return h;
     }catch(e){ return {}; }
   };
   const [myRecords,setMyRecords]=useState([]);
@@ -158,16 +162,20 @@ export default function Page(){
       .catch(()=>setMyRecords(null));
   },[tab, auth]);
 
-  const isAdmin = auth && (
-    auth.email === "parkhy5454@gmail.com" ||
-    auth.email === "admin@fixcut.com" ||
-    auth.email?.includes("parkhy") ||
-    auth.name === "관리자"
-  );
+  // 관리자 여부는 서버(DB의 is_admin)가 판단한다
+  const [isAdminUser,setIsAdminUser]=useState(false);
+  useEffect(()=>{
+    if(!auth){ setIsAdminUser(false); return; }
+    fetch("/api/admin/check", {headers: authHeaders()})
+      .then(r=>r.json())
+      .then(d=>setIsAdminUser(d.isAdmin===true))
+      .catch(()=>setIsAdminUser(false));
+  },[auth]);
+  const isAdmin = isAdminUser;
 
   const loadAdmin = () => {
-    fetch("/api/admin/list").then(r=>r.json()).then(d=>setAdminData(prev=>({...prev, ...d}))).catch(()=>{});
-    fetch("/api/referral?all=1").then(r=>r.json()).then(d=>setAdminData(prev=>({...prev, referrals:d.referrals||[]}))).catch(()=>{});
+    fetch("/api/admin/list", {headers: authHeaders()}).then(r=>r.json()).then(d=>setAdminData(prev=>({...prev, ...d}))).catch(()=>{});
+    fetch("/api/referral?all=1", {headers: authHeaders()}).then(r=>r.json()).then(d=>setAdminData(prev=>({...prev, referrals:d.referrals||[]}))).catch(()=>{});
   };
 
   const handleUpdate = async () => {
@@ -254,7 +262,6 @@ export default function Page(){
         localStorage.removeItem("fixcut_incoming_ref");
       }catch(e){}
     }
-    if(user.email==="admin@fixcut.com"||user.email.includes("parkhy")){ setTimeout(()=>{setTab("admin"); loadAdmin();},500);}
   };
 
   const calc=()=>{
