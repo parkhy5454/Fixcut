@@ -6,7 +6,7 @@ export default function Page(){
   const [tab, setTab] = useState("home");
   const [auth, setAuth] = useState(null); // {email, name}
   const [showAuth, setShowAuth] = useState(null); // signup | login
-  const [authForm, setAuthForm] = useState({email:"", password:"", name:""});
+  const [authForm, setAuthForm] = useState({email:"", password:"", name:"", phone:""});
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name:"", carrier:"KT", phoneFee:69000, dataUsage:11,
@@ -148,6 +148,7 @@ export default function Page(){
             <div className="flex justify-between items-center"><h3 className="text-[20px] font-black">{showAuth==="signup"?"회원가입":"로그인"}</h3><button onClick={()=>setShowAuth(null)} className="w-8 h-8 bg-black/5 rounded-full">✕</button></div>
             <div className="mt-6 space-y-4">
               {showAuth==="signup" && <input value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="이름 (예: 박현용)" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 outline-none"/>}
+              <input value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:e.target.value})} placeholder="핸드폰 번호 (010-1234-5678)" type="tel" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 outline-none"/>
               <input value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="이메일" type="email" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 outline-none"/>
               <input value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder="비밀번호" type="password" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 outline-none"/>
               <button onClick={showAuth==="signup"?handleSignup:handleLogin} className="w-full bg-black text-white rounded-full py-4 font-bold mt-2">{showAuth==="signup"?"가입하고 시작하기 →":"로그인 →"}</button>
