@@ -34,6 +34,14 @@ const Icons = {
 
 export default function Page(){
   const [tab,setTab]=useState("home");
+  const getDisplayName = (u)=>{
+    if(!u) return "";
+    // if name is email-like or same as username part, try realName
+    if(u.realName) return u.realName;
+    const n = u.name||"";
+    if(n.includes("@")) return u.email?.split("@")[0]||n;
+    return n;
+  };
   const [auth,setAuth]=useState(null);
   const [showAuth,setShowAuth]=useState(null);
   const [authForm,setAuthForm]=useState({name:"",phone:"",email:"",password:"",referralCode:""});
@@ -41,7 +49,7 @@ export default function Page(){
   const [form,setForm]=useState({
     name:"", carrier:"KT", phoneFee:"69,000", dataUsage:"11",
     ott:{netflix:false,youtube:false,disney:false,wavve:false,tving:false},
-    loans:[{institution:"", amount:"30,000,000", rate:"4.8"}]
+    loanInstitution:"", loanAmount:"30,000,000", loanRate:"4.8"
   });
   const [result,setResult]=useState(null);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
@@ -70,6 +78,66 @@ export default function Page(){
       }
     }catch(e){}
   },[]);
+  // ULTIMATE SAFE: DB가 ID면 절대 로컬을 덮어쓰지 않음 - 무한 반복 차단
+  useEffect(()=>{
+    const safeSync = async()=>{
+      try{
+        const s=localStorage.getItem("fixcut_auth");
+        if(!s) return;
+        const u=JSON.parse(s);
+        if(!u.email) return;
+        const hasHangul = (v)=>/[가-힣]/.test(v||"");
+        const isIdLike = (name, email)=>{
+          if(!name) return true;
+          if(name.includes("@")) return true;
+          if(email && name.toLowerCase()===email.split("@")[0].toLowerCase()) return true;
+          if(!hasHangul(name) && /^[a-z0-9._-]+$/i.test(name) && name.length<=25) return true;
+          return false;
+        };
+        const res = await fetch(`/api/auth/me?email=${encodeURIComponent(u.email)}`);
+        const data = await res.json();
+        if(!data.ok || !data.user) return;
+        const db = data.user;
+        // Case 1: 로컬은 정상(한글)인데 DB는 ID -> 로컬을 DB에 업로드, 로컬 유지
+        if(hasHangul(u.name) && isIdLike(db.name, db.email)){
+          await fetch("/api/auth/me",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email:u.email, name:u.name, phone:u.phone})});
+          return; // keep local
+        }
+        // Case 2: 로컬이 ID인데 DB는 정상 -> DB로 로컬 교정 (한 번만)
+        if(isIdLike(u.name, u.email) && hasHangul(db.name)){
+          const fixed={...u, name:db.name, phone:db.phone||u.phone, email:db.email||u.email};
+          localStorage.setItem("fixcut_auth", JSON.stringify(fixed));
+          setAuth(fixed);
+          return;
+        }
+        // Case 3: DB phone이 비어있고 로컬 phone이 있으면 DB에 업로드
+        if((!db.phone || db.phone.trim()==="") && u.phone){
+          await fetch("/api/auth/me",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email:u.email, name:u.name, phone:u.phone})});
+        }
+        // 그 외에는 아무 것도 안 함 - 로컬이 1순위
+      }catch(e){}
+    };
+    safeSync();
+  },[]);
+
+  // editForm은 항상 auth를 따라감
+  useEffect(()=>{
+    if(auth){
+      setEditForm({name:auth.name||"", phone:auth.phone||"", email:auth.email||"", password:"", newPassword:""});
+    }
+  }, [auth]);
+
+
+
+  useEffect(()=>{
+    if(tab==="diag" && auth && step===1){
+      const dName=getDisplayName(auth);
+      if(dName){
+        setForm(prev=>({...prev, name:dName}));
+        setStep(2);
+      }
+    }
+  },[tab, auth]);
 
   useEffect(()=>{
     if(referralCode && auth){
@@ -108,6 +176,8 @@ export default function Page(){
     let t=0; let d=[];
     const phoneFeeNum = parseNumber(form.phoneFee);
     const dataUsageNum = parseNumber(form.dataUsage);
+    const loanAmountNum = parseNumber(form.loanAmount);
+    const loanRateNum = parseFloat(form.loanRate) || 0;
 
     if(form.carrier!=="알뜰폰" && phoneFeeNum>30000){
       const tar=dataUsageNum<=15?19900:29700;
@@ -119,15 +189,11 @@ export default function Page(){
     Object.keys(form.ott).forEach(k=>{
       if(form.ott[k]){ t+=fees[k]; d.push({title:`${feeNames[k]} 공유/해지`,save:fees[k], desc:`${formatComma(fees[k])}원 절약`}); }
     });
-    form.loans.forEach((loan, idx)=>{
-      const amt = parseNumber(loan.amount);
-      const rate = parseFloat(loan.rate) || 0;
-      if(amt>=1000000 && rate>3.2){
-        const ms=Math.round(amt*(rate-3.2)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → 3.2% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
-      }
-    });
-    return {total:t,details:d};
+    if(loanAmountNum>=5000000 && loanRateNum>3.2){
+      const ms=Math.round(loanAmountNum*(loanRateNum-3.2)/100/12);
+      if(ms>0){t+=ms; d.push({title:`${form.loanInstitution||"대출"} 금리 ${loanRateNum}% → 3.2% 대환`,save:ms, desc:`${form.loanInstitution||"대출"} ${formatComma(loanAmountNum)}원 기준`});}
+    }
+    return {total:t,details:d, inputs:{phoneFeeNum,dataUsageNum,loanAmountNum,loanRateNum,loanInstitution:form.loanInstitution}};
   };
 
   const widthPercent = step * 25 + "%";
@@ -168,7 +234,7 @@ export default function Page(){
           {step===1 && <div className="mt-8"><h2 className="text-[26px] font-black">이름을 알려주세요</h2><p className="text-[13px] text-black/50 mt-1">절약 결과를 저장할 때 필요해요</p><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="박현용" className="mt-4 w-full bg-gray-50 border rounded-2xl px-6 py-5 text-[18px] font-bold"/><button onClick={()=>{if(!form.name) return alert("이름 입력"); setStep(2);}} className="mt-6 w-full bg-black text-white rounded-full py-4 font-bold">다음</button></div>}
 
           {step===2 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">통신비 정보를<br/>입력해주세요</h2>
+            <h2 className="text-[26px] font-black leading-tight">통신비 입력</h2>
             <div className="mt-6 space-y-5">
               <div>
                 <div className="text-[12px] font-bold mb-2">통신사</div>
@@ -180,12 +246,12 @@ export default function Page(){
                   <input value={form.phoneFee} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,phoneFee:""}); return;} const num=Number(raw); setForm({...form,phoneFee:formatComma(num)});}} placeholder="69,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
-                <div className="text-[11px] text-black/40 mt-1">숫자만 입력하면 천단위 자동 표시, 0까지 모두 삭제 가능</div>
+                
               </div>
               <div>
                 <div className="text-[12px] font-bold mb-2">월 데이터 사용량</div>
                 <div className="relative">
-                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="11" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <input value={form.dataUsage} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,dataUsage:""}); return;} setForm({...form,dataUsage:raw});}} placeholder="실제 사용 데이터 입력" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">GB</span>
                 </div>
               </div>
@@ -202,49 +268,45 @@ export default function Page(){
           ].map(k=><label key={k.key} className={"flex items-center justify-between p-4 border rounded-2xl cursor-pointer "+(form.ott[k.key]?"bg-black text-white border-black":"bg-white")}><div className="flex items-center gap-3"><input type="checkbox" checked={form.ott[k.key]} onChange={e=>setForm({...form,ott:{...form.ott,[k.key]:e.target.checked}})} className="w-5 h-5"/><span className="font-bold text-[14px]">{k.name}</span></div><span className={"text-[12px] "+(form.ott[k.key]?"text-white/60":"text-black/40")}>{k.price}</span></label>)}</div><div className="mt-6 flex gap-2"><button onClick={()=>setStep(2)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>setStep(4)} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음</button></div></div>}
 
           {step===4 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">대출 정보를<br/>입력해주세요</h2>
-            <p className="text-[13px] text-black/50 mt-1">여러 건이면 + 버튼으로 추가 (없으면 비워두고 결과 보기)</p>
-            <div className="mt-6 space-y-4">
-              {form.loans.map((loan, idx)=>(
-                <div key={idx} className="bg-gray-50 border rounded-[20px] p-4 relative">
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="text-[12px] font-black bg-black text-white px-3 py-1 rounded-full">대출 {idx+1}</div>
-                    {form.loans.length>1 && <button onClick={()=>{const newLoans=form.loans.filter((_,i)=>i!==idx); setForm({...form, loans:newLoans});}} className="text-[11px] bg-red-50 text-red-500 border border-red-200 px-3 py-1 rounded-full font-bold">삭제</button>}
-                  </div>
-                  <div className="space-y-3">
-                    <select value={loan.institution} onChange={e=>{const nl=[...form.loans]; nl[idx].institution=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold">
-                      <option value="">대출 기관 선택</option>
-                      <option value="KB국민은행">KB국민은행</option>
-                      <option value="신한은행">신한은행</option>
-                      <option value="우리은행">우리은행</option>
-                      <option value="하나은행">하나은행</option>
-                      <option value="NH농협">NH농협</option>
-                      <option value="카카오뱅크">카카오뱅크</option>
-                      <option value="토스뱅크">토스뱅크</option>
-                      <option value="케이뱅크">케이뱅크</option>
-                      <option value="기타 은행">기타 은행</option>
-                      <option value="카드론/캐피탈">카드론/캐피탈</option>
-                    </select>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
-                        <input value={loan.amount} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const nl=[...form.loans]; if(raw===""){nl[idx].amount="";} else {nl[idx].amount=formatComma(Number(raw));} setForm({...form, loans:nl});}} placeholder="30,000,000" inputMode="numeric" className="w-full bg-white border rounded-xl px-4 py-3.5 pr-8 text-[14px] font-bold"/>
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-black/40">원</span>
-                      </div>
-                      <div className="relative">
-                        <input value={loan.rate} onChange={e=>{let v=e.target.value.replace(/[^0-9.]/g,""); const parts=v.split("."); if(parts.length>2) v=parts[0]+"."+parts.slice(1).join(""); const nl=[...form.loans]; nl[idx].rate=v; setForm({...form, loans:nl});}} placeholder="4.8" inputMode="decimal" className="w-full bg-white border rounded-xl px-4 py-3.5 pr-8 text-[14px] font-bold"/>
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-black/40">%</span>
-                      </div>
-                    </div>
-                  </div>
+            <h2 className="text-[26px] font-black leading-tight">대출 정보 입력</h2>
+            
+            <div className="mt-6 space-y-5">
+              <div>
+                <div className="text-[12px] font-bold mb-2">대출 기관</div>
+                <select value={form.loanInstitution} onChange={e=>setForm({...form,loanInstitution:e.target.value})} className="w-full bg-gray-50 border rounded-2xl px-5 py-4 text-[15px] font-bold">
+                  <option value="">선택 (없으면 건너뛰기)</option>
+                  <option value="KB국민은행">KB국민은행</option>
+                  <option value="신한은행">신한은행</option>
+                  <option value="우리은행">우리은행</option>
+                  <option value="하나은행">하나은행</option>
+                  <option value="NH농협">NH농협</option>
+                  <option value="카카오뱅크">카카오뱅크</option>
+                  <option value="토스뱅크">토스뱅크</option>
+                  <option value="케이뱅크">케이뱅크</option>
+                  <option value="기타 은행">기타 은행</option>
+                  <option value="카드론/캐피탈">카드론/캐피탈</option>
+                </select>
+              </div>
+              <div>
+                <div className="text-[12px] font-bold mb-2">대출 잔액</div>
+                <div className="relative">
+                  <input value={form.loanAmount} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,loanAmount:""}); return;} const num=Number(raw); setForm({...form,loanAmount:formatComma(num)});}} placeholder="30,000,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
-              ))}
-              <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
+              </div>
+              <div>
+                <div className="text-[12px] font-bold mb-2">현재 금리</div>
+                <div className="relative">
+                  <input value={form.loanRate} onChange={e=>{let v=e.target.value.replace(/[^0-9.]/g,""); const parts=v.split("."); if(parts.length>2) v=parts[0]+"."+parts.slice(1).join(""); setForm({...form,loanRate:v});}} placeholder="4.8" inputMode="decimal" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">%</span>
+                </div>
+              </div>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r=calc(); setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:form.name,phone:auth?.phone||"",total:r.total,details:r.details})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loanInstitution||"없음"} {form.loanAmount?formatComma(parseNumber(form.loanAmount))+"원":""} {form.loanRate?form.loanRate+"%":""}</div></div></div></div>}</div>}
 
         {tab==="referral" && <div className="mt-6">
           <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
@@ -283,7 +345,13 @@ export default function Page(){
                 <div className="text-[13px] text-black/50 mt-1">{auth.email}</div>
                 <div className="text-[12px] text-black/40">{auth.phone}</div>
               </div>
-              <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
+              <button onClick={()=>{
+          if(auth && tab!=="diag"){
+            const dName=getDisplayName(auth);
+            if(dName) setForm(prev=>({...prev, name:dName}));
+          }
+        }} style={{display:"none"}}></button>
+        <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
             </div>
 
             <div className="mt-5 bg-gradient-to-r from-amber-300 to-orange-300 rounded-2xl p-4 flex justify-between items-center">
@@ -295,7 +363,7 @@ export default function Page(){
               <h3 className="font-black text-[16px]">내 정보 수정</h3>
               <div className="mt-4 space-y-3">
                 <div><div className="text-[11px] font-bold text-black/50 mb-1">이름</div><input value={editForm.name} onChange={e=>setEditForm({...editForm,name:e.target.value})} className="w-full bg-white border rounded-xl px-4 py-3 text-[14px]"/></div>
-                <div><div className="text-[11px] font-bold text-black/50 mb-1">핸드폰 (숫자만 입력, 자동 하이픈)</div><input value={editForm.phone} onChange={e=>setEditForm({...editForm,phone:formatPhone(e.target.value)})} inputMode="numeric" placeholder="010-1234-5678" className="w-full bg-white border rounded-xl px-4 py-3 text-[14px]"/></div>
+                <div><div className="text-[11px] font-bold text-black/50 mb-1">핸드폰 (숫자만 입력, 자동 하이픈)</div><input value={editForm.phone} onChange={e=>setEditForm({...editForm,phone:formatPhone(e.target.value)})} inputMode="numeric" placeholder="" className="w-full bg-white border rounded-xl px-4 py-3 text-[14px]"/></div>
                 <div><div className="text-[11px] font-bold text-black/50 mb-1">이메일</div><input value={editForm.email} onChange={e=>setEditForm({...editForm,email:e.target.value})} className="w-full bg-white border rounded-xl px-4 py-3 text-[14px]"/></div>
                 <div className="pt-3 border-t mt-3"><div className="text-[11px] font-bold text-black/50 mb-1">현재 비밀번호</div><input value={editForm.password} onChange={e=>setEditForm({...editForm,password:e.target.value})} type="password" placeholder="현재 비밀번호" className="w-full bg-white border rounded-xl px-4 py-3 text-[14px]"/></div>
                 <div><div className="text-[11px] font-bold text-black/50 mb-1">새 비밀번호</div><input value={editForm.newPassword} onChange={e=>setEditForm({...editForm,newPassword:e.target.value})} type="password" placeholder="새 비밀번호" className="w-full bg-white border rounded-xl px-4 py-3 text-[14px]"/></div>
@@ -313,14 +381,14 @@ export default function Page(){
 
       {showAuth && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-end justify-center p-4"><div className="bg-white rounded-[28px] w-full max-w-[400px] p-7 max-h-[90vh] overflow-auto"><div className="flex justify-between"><h3 className="text-[20px] font-black">{showAuth==="signup"?"회원가입":"로그인"}</h3><button onClick={()=>setShowAuth(null)} className="w-8 h-8 bg-black/5 rounded-full">X</button></div>
         <div className="mt-6 space-y-3">
-          {showAuth==="signup" && <><input value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="이름" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/><div><div className="text-[11px] font-bold text-black/50 mb-1">핸드폰 번호 (숫자만 입력)</div><input value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:formatPhone(e.target.value)})} inputMode="numeric" placeholder="010-1234-5678" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/></div></>}
+          {showAuth==="signup" && <><input value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="이름" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/><div><div className="text-[11px] font-bold text-black/50 mb-1">핸드폰 번호 (숫자만 입력)</div><input value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:formatPhone(e.target.value)})} inputMode="numeric" placeholder="" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/></div></>}
           <input value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="이메일" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
           <input value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder="비밀번호" type="password" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
           {showAuth==="signup" && <div><div className="text-[11px] font-bold text-black/50 mb-1">친구 추천 코드 (선택)</div><input value={authForm.referralCode} onChange={e=>setAuthForm({...authForm,referralCode:e.target.value})} placeholder="추천 코드 있으면 입력" className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-[14px]"/><div className="text-[10px] text-amber-600 mt-1">추천 코드 입력하면 1만원 혜택!</div></div>}
           <button onClick={async()=>{
             const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
             if(showAuth==="signup" && (!authForm.name||!authForm.phone||!authForm.email||!authForm.password)){alert("모두 입력"); return;}
-            const user={name:authForm.name||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email};
+            const user={name:(authForm.name||"").trim()||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email, realName:(authForm.name||"").trim()};
             localStorage.setItem("fixcut_auth",JSON.stringify(user));
             const code = (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
             localStorage.setItem("fixcut_ref_code", code);
