@@ -2,6 +2,7 @@
 import { neon } from "@neondatabase/serverless";
 import { hashPassword, verifyPassword, isLegacyPlain, makeSessionToken } from "../password.js";
 import { allowRequest } from "../ratelimit.js";
+import { ensureTables, ensureReferralCode } from "../referral.js";
 export async function POST(req){
   try{
     const {email,password} = await req.json();
@@ -19,8 +20,10 @@ export async function POST(req){
       stored = hashPassword(password);
       await sql`UPDATE users SET password=${stored} WHERE id=${row.id}`;
     }
-    const {password: _pw, ...user} = row;
-    return Response.json({ok:true, user, token: makeSessionToken(row.email, stored)});
+    await ensureTables(sql);
+    const referral_code = await ensureReferralCode(sql, row.id, row.email);
+    const user = {name: row.name, phone: row.phone, email: row.email};
+    return Response.json({ok:true, user, token: makeSessionToken(row.email, stored), referral_code});
   }catch(e){
     console.error(e);
     return Response.json({ok:false,error:String(e)},{status:500});

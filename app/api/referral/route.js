@@ -1,6 +1,5 @@
 import { neon } from "@neondatabase/serverless";
 import { verifyAdmin } from "../auth/admin.js";
-import { allowRequest } from "../auth/ratelimit.js";
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
@@ -24,4 +23,4 @@ export async function GET(req){
     return Response.json({referrals:[],error:String(e)});
   }
 }
-export async function POST(req){try{const {referrerCode,referredName,referredEmail}=await req.json(); if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true}); const sql=neon(process.env.DATABASE_URL); if(!(await allowRequest(req, sql, "referral", 10, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});; await sql`CREATE TABLE IF NOT EXISTS referrals (id SERIAL PRIMARY KEY, referrer_code TEXT, referred_name TEXT, referred_email TEXT, created_at TIMESTAMP DEFAULT NOW())`; await sql`INSERT INTO referrals (referrer_code, referred_name, referred_email) VALUES (${referrerCode}, ${referredName}, ${referredEmail})`; return Response.json({ok:true});}catch(e){return Response.json({ok:false,error:String(e)},{status:500});}}
+export async function POST(){ return Response.json({ok:false, error:"추천은 회원가입 시 자동으로 연결됩니다"}, {status:410}); }

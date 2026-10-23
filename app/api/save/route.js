@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { checkSession } from "../auth/password.js";
 import { allowRequest } from "../auth/ratelimit.js";
+import { confirmRewards } from "../auth/referral.js";
 export async function POST(req){
   try{
     const body = await req.json();
@@ -54,6 +55,7 @@ export async function POST(req){
         ${JSON.stringify(body.inputs?.loans||body.loans||[])},
         ${owner}
       )`;
+    if(owner){ try{ await confirmRewards(sql, owner); }catch(e){ console.error("confirm rewards", e); } }
     return Response.json({ok:true});
   }catch(e){
     return Response.json({ok:false,error:String(e)},{status:500});

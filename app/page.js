@@ -187,6 +187,20 @@ export default function Page(){
       .catch(()=>{});
   },[tab, auth, result]);
 
+  // 포인트, 추천 코드, 추천 현황을 서버에서 불러온다
+  const [points,setPoints]=useState({code:"",balance:0,pending:0,items:[],referrals:[]});
+  useEffect(()=>{
+    if(!auth?.email){ setPoints({code:"",balance:0,pending:0,items:[],referrals:[]}); return; }
+    fetch("/api/points?email="+encodeURIComponent(auth.email), {headers: authHeaders()})
+      .then(r=>r.json())
+      .then(d=>{
+        if(!d.ok) return;
+        setPoints({code:d.code||"", balance:d.balance||0, pending:d.pending||0, items:d.items||[], referrals:d.referrals||[]});
+        if(d.code) setReferralCode(d.code);
+      })
+      .catch(()=>{});
+  },[auth, tab]);
+
   // 관리자 여부는 서버(DB의 is_admin)가 판단한다
   const [isAdminUser,setIsAdminUser]=useState(false);
   useEffect(()=>{
@@ -249,7 +263,7 @@ export default function Page(){
     const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
     const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
     const body = isSignup
-      ? {name:authForm.name.trim(), phone:authForm.phone.trim(), email:authForm.email.trim(), password:authForm.password}
+      ? {name:authForm.name.trim(), phone:authForm.phone.trim(), email:authForm.email.trim(), password:authForm.password, referralCode:incomingRef||""}
       : {email:authForm.email.trim(), password:authForm.password};
     let data;
     try{
@@ -272,21 +286,12 @@ export default function Page(){
       email: srv?.email ?? authForm.email.trim().toLowerCase(),
     };
     localStorage.setItem("fixcut_auth", JSON.stringify(user));
-    // 로그인 시에는 기존 추천 코드를 유지해야 추천 내역이 끊기지 않는다
-    const existingCode = localStorage.getItem("fixcut_ref_code");
-    const code = (!isSignup && existingCode) ? existingCode
-      : (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
-    localStorage.setItem("fixcut_ref_code", code);
-    setReferralCode(code);
+    // 추천 코드는 서버가 발급한 값을 사용한다
+    setReferralCode(data.referral_code || "");
+    if(isSignup){ localStorage.removeItem("fixcut_incoming_ref"); }
     setAuth(user);
     setEditForm({name:user.name, phone:user.phone, email:user.email, password:"", newPassword:""});
     setShowAuth(null);
-    if(isSignup && incomingRef){
-      try{
-        await fetch("/api/referral", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({referrerCode:incomingRef, referredName:user.name, referredEmail:user.email})});
-        localStorage.removeItem("fixcut_incoming_ref");
-      }catch(e){}
-    }
   };
 
   const calc=()=>{
@@ -457,11 +462,12 @@ export default function Page(){
         </div>}
 
         {tab==="referral" && <div className="mt-6">
-          <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
+          <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만 포인트!</span></h2>
+          {!auth ? <div className="text-center py-16"><div className="font-bold">로그인이 필요해요</div><button onClick={()=>setShowAuth("login")} className="mt-4 bg-black text-white rounded-full px-6 py-2">로그인</button></div> : <>
           <div className="mt-6 bg-black text-white rounded-[24px] p-6">
             <div className="text-[11px] text-white/50">내 추천 코드</div>
             <div className="flex items-center justify-between mt-2">
-              <div className="text-[28px] font-black tracking-widest">{referralCode||"로그인 필요"}</div>
+              <div className="text-[24px] font-black tracking-widest break-all">{referralCode||"발급 중"}</div>
               <button onClick={copyLink} className="bg-white text-black rounded-full px-4 py-2 text-[12px] font-bold">{copied?"복사됨!":"복사"}</button>
             </div>
             <div className="mt-4 bg-white/10 rounded-xl p-3 text-[11px] break-all">{shareLink}</div>
@@ -470,17 +476,27 @@ export default function Page(){
               <button onClick={copyLink} className="bg-white text-black rounded-full py-3 font-bold text-[13px]">링크 복사</button>
             </div>
           </div>
-          <div className="mt-6 grid grid-cols-3 gap-2">
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center"><div className="text-[22px] font-black">{myReferrals.length}</div><div className="text-[11px] text-black/50">추천한 친구</div></div>
-            <div className="bg-gray-50 border rounded-2xl p-4 text-center"><div className="text-[22px] font-black">{(myReferrals.length*10000).toLocaleString()}</div><div className="text-[11px] text-black/50">적립금</div></div>
-            <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 text-center"><div className="text-[22px] font-black">1만</div><div className="text-[11px] text-black/50">친구 혜택</div></div>
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center"><div className="text-[20px] font-black">{formatComma(points.balance)}원</div><div className="text-[11px] text-black/50">사용 가능 포인트</div></div>
+            <div className="bg-gray-50 border rounded-2xl p-4 text-center"><div className="text-[20px] font-black">{formatComma(points.pending)}원</div><div className="text-[11px] text-black/50">적립 대기</div></div>
           </div>
+          <div className="mt-3 text-[11px] text-black/40 leading-relaxed">※ 포인트는 본인 인증과 첫 진단을 마친 뒤 적립됩니다. 적립 포인트는 적립일부터 12개월 동안 유효하며, 사용처는 추후 안내됩니다.</div>
           <div className="mt-8"><h3 className="font-black">추천 현황</h3>
             <div className="mt-3 space-y-2">
-              {myReferrals.length===0 ? <div className="text-center py-10 bg-gray-50 rounded-2xl"><div className="text-[40px]">🎁</div><div className="text-[13px] font-bold mt-2">아직 추천한 친구가 없어요</div><div className="text-[11px] text-black/40 mt-1">친구에게 링크를 공유해보세요!</div></div> :
-              myReferrals.map((r,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{r.referred_name||"친구"}</div><div className="text-[11px] text-black/40">{r.created_at?.slice(0,10)} 가입</div></div><div className="bg-amber-400 text-black text-[11px] font-bold px-3 py-1 rounded-full">+1만원</div></div>)}
+              {points.referrals.length===0 ? <div className="text-center py-8 bg-gray-50 rounded-2xl"><div className="text-[13px] font-bold">아직 추천한 친구가 없어요</div><div className="text-[11px] text-black/40 mt-1">친구에게 링크를 공유해 보세요</div></div> :
+              points.referrals.map(r=><div key={r.id} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{r.referred_name||"친구"}</div><div className="text-[11px] text-black/40">{String(r.created_at).slice(0,10)} 가입</div></div><span className={"text-[11px] font-bold px-2 py-1 rounded-full "+(r.done?"bg-emerald-50 text-emerald-600":"bg-gray-100 text-black/50")}>{r.done?"적립 완료":"인증·진단 대기"}</span></div>)}
             </div>
           </div>
+          <div className="mt-8"><h3 className="font-black">포인트 내역</h3>
+            <div className="mt-3 space-y-2">
+              {points.items.length===0 ? <div className="text-[12px] text-black/40 py-4 text-center">아직 포인트 내역이 없어요</div> :
+              points.items.map(it=><div key={it.id} className="border rounded-2xl p-4 flex justify-between items-center">
+                <div><div className="font-bold text-[13px]">{it.reason==="referral_referrer"?"친구 추천 적립":"추천 가입 혜택"}</div><div className="text-[11px] text-black/40">{String(it.created_at).slice(0,10)}{it.expires_at ? " · "+String(it.expires_at).slice(0,10)+"까지" : ""}</div></div>
+                <div className="text-right"><div className="font-black text-[14px]">+{formatComma(it.amount)}원</div><div className="text-[11px] text-black/40">{it.status==="confirmed"?"적립 완료":"대기"}</div></div>
+              </div>)}
+            </div>
+          </div>
+          </>}
         </div>}
 
         {tab==="my" && <div className="mt-8">

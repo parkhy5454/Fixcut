@@ -15,7 +15,8 @@ export async function POST(req){
       return Response.json({ok:false, error:"현재 비밀번호가 일치하지 않습니다"}, {status:401});
     }
     try{ await sql`DELETE FROM savings WHERE email=${email}`; }catch(e){ console.error("withdraw savings", e); }
-    try{ await sql`DELETE FROM referrals WHERE referred_email=${email}`; }catch(e){ console.error("withdraw referrals", e); }
+    try{ await sql`DELETE FROM referrals WHERE LOWER(referred_email)=${email}`; }catch(e){ console.error("withdraw referrals", e); }
+    try{ await sql`DELETE FROM point_ledger WHERE LOWER(email)=${email}`; }catch(e){ console.error("withdraw points", e); }
     await sql`DELETE FROM users WHERE id=${rows[0].id}`;
     return Response.json({ok:true});
   }catch(e){
