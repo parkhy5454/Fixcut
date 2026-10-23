@@ -1,10 +1,12 @@
 import { neon } from "@neondatabase/serverless";
 import { checkSession } from "../auth/password.js";
+import { allowRequest } from "../auth/ratelimit.js";
 export async function POST(req){
   try{
     const body = await req.json();
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true});
     const sql = neon(process.env.DATABASE_URL);
+    if(!(await allowRequest(req, sql, "save", 30, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});
     await sql`CREATE TABLE IF NOT EXISTS savings (
       id SERIAL PRIMARY KEY,
       name TEXT,

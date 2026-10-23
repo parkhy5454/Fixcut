@@ -1,6 +1,7 @@
 
 import { neon } from "@neondatabase/serverless";
 import { hashPassword, makeSessionToken } from "../password.js";
+import { allowRequest } from "../ratelimit.js";
 export async function POST(req){
   try{
     const {name,phone,email,password} = await req.json();
@@ -10,6 +11,7 @@ export async function POST(req){
     if(!cleanName || !cleanPhone || !cleanEmail || !password) return Response.json({ok:false, error:"필수 정보 누락"}, {status:400});
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true, user:{name:cleanName, phone:cleanPhone, email:cleanEmail}});
     const sql = neon(process.env.DATABASE_URL);
+    if(!(await allowRequest(req, sql, "signup", 5, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});
     // 같은 이메일이 있으면 덮어쓰지 않고 거절한다
     const pwHash = hashPassword(password);
     let rows;
