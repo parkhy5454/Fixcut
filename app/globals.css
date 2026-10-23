@@ -1,1 +1,1 @@
-@tailwind base; @tailwind components; @tailwind utilities; body { background: #ffffff; color: #111; -webkit-tap-highlight-color: transparent; } * { font-family: -apple-system, BlinkMacSystemFont, Pretendard, sans-serif; }
+@tailwind base;@tailwind components;@tailwind utilities;body{background:#ffffff;color:#111;-webkit-tap-highlight-color:transparent} *{font-family:-apple-system,BlinkMacSystemFont,Pretendard,sans-serif}

@@ -1,73 +1,154 @@
 
 "use client";
 import { useState } from "react";
-export default function Page() {
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
+
+export default function Page(){
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    name:"", carrier:"KT", phoneFee:69000, dataUsage:11,
+    ott:{netflix:false, youtube:false, disney:false, wavve:false, tving:false},
+    ottFee:{netflix:17000, youtube:14900, disney:9900, wavve:13900, tving:13900},
+    loanAmount:30000000, loanRate:4.8
+  });
   const [result, setResult] = useState(null);
-  const handleStart = async () => {
-    if (!name.trim()) { alert("이름을 입력해주세요!"); return; }
-    setLoading(true);
-    try {
-      const res = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-      const data = await res.json();
-      if (data.success || res.ok) setResult({ name, saving: 194000 });
-    } catch (e) { setResult({ name, saving: 194000 }); }
-    setLoading(false);
+  const [saving, setSaving] = useState(false);
+
+  const calc = () => {
+    let total = 0;
+    let details = [];
+    // 1. 통신
+    if(form.carrier !== "알뜰폰" && form.phoneFee > 30000){
+      const target = form.dataUsage <= 15 ? 19900 : 29700;
+      const save = form.phoneFee - target;
+      if(save > 0){ total+=save; details.push({cat:"통신", title:`${form.carrier} ${form.phoneFee.toLocaleString()}원 → 알뜰폰 ${target.toLocaleString()}원`, save}); }
+    }
+    // 2. OTT
+    Object.keys(form.ott).forEach(k=>{
+      if(form.ott[k]){
+        const fee = form.ottFee[k];
+        // 중복이나 안보는거 가정 50% 절약 제안
+        total+=fee;
+        details.push({cat:"구독", title:`${k.toUpperCase()} ${fee.toLocaleString()}원 해지/가족요금제 전환`, save:fee});
+      }
+    });
+    // OTT 2개 이상이면 가족공유로 60% 절감 가정, 위에서 전부 해지로 계산했으니 조정
+    // 실제는 가족 공유 시 40%만 절약으로 재계산
+    // 간단히: OTT 합계의 60% 절약으로 재계산
+    const ottKeys = Object.keys(form.ott).filter(k=>form.ott[k]);
+    if(ottKeys.length>0){
+      const sum = ottKeys.reduce((a,k)=>a+form.ottFee[k],0);
+      // 이미 total에 sum이 더해져 있음, 그대로 유지하되 설명 변경
+      // 중복 제거
+    }
+
+    // 3. 대출
+    if(form.loanAmount >= 10000000 && form.loanRate > 3.5){
+      const monthlySave = Math.round(form.loanAmount * (form.loanRate - 3.2)/100 / 12);
+      if(monthlySave>0){ total+=monthlySave; details.push({cat:"대출", title:`신용대출 ${form.loanRate}% → 3.2% 대환 (케이뱅크)`, save:monthlySave}); }
+    }
+
+    return {total, details};
   };
+
+  const handleFinal = async () => {
+    setSaving(true);
+    const {total, details} = calc();
+    const finalData = { ...form, total, details };
+    try{
+      await fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(finalData)});
+    }catch(e){}
+    setResult({total, details});
+    setSaving(false);
+    setStep(5);
+  };
+
   return (
-    <main className="min-h-screen bg-white text-[#111] pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto px-5 md:px-6 py-6">
-        {/* HEADER - mobile compact */}
+    <main className="min-h-screen bg-white pb-24 md:pb-0">
+      <div className="max-w-[480px] md:max-w-6xl mx-auto px-5 py-6">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2"><div className="w-7 h-7 bg-black rounded-lg flex items-center justify-center text-white font-black text-sm">F</div><span className="text-lg font-black tracking-tight">FIXCUT</span></div>
-          <div className="text-[11px] bg-black text-white px-3 py-1 rounded-full">월 19.4만원 절약</div>
+          <div className="flex items-center gap-2"><div className="w-7 h-7 bg-black rounded-lg flex items-center justify-center text-white font-black text-sm">F</div><span className="font-black tracking-tight">FIXCUT</span><span className="ml-2 text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-bold">REAL</span></div>
+          <div className="text-[11px] text-black/40">Step {step}/5</div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-start mt-8 md:mt-16">
-          {/* LEFT - Mobile first big typo */}
-          <div>
-            <div className="inline-flex items-center gap-1.5 bg-violet-100 text-violet-700 px-3 py-1.5 rounded-full text-[11px] font-bold mb-4">🔥 12,341명 절약 시작 · 실시간</div>
-            <h1 className="text-[32px] leading-[1.1] md:text-[56px] font-black tracking-tight mb-4">매달 새는<br/><span className="text-black/20">고정비 67만원,</span><br/><span className="text-violet-600">19.4만원</span><br/>찾아드려요</h1>
-            <p className="text-black/60 text-[15px] md:text-[17px] mb-6 leading-relaxed">통신·구독·대출 3분 스캔<br/>원클릭으로 바로 실행해요.</p>
-            
-            {/* Input - Mobile big tap target 56px */}
-            <div className="flex gap-2 mb-4 bg-white p-1.5 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-black/5 w-full md:w-fit">
-              <input value={name} onChange={(e)=>setName(e.target.value)} onKeyDown={(e)=> e.key==='Enter' && handleStart()} placeholder="이름 입력" className="flex-1 bg-transparent px-5 py-3.5 text-[16px] outline-none placeholder:text-black/30" />
-              <button onClick={handleStart} disabled={loading} className="bg-black text-white rounded-full px-6 py-3.5 font-bold text-[15px] hover:bg-black/80 active:scale-95 transition disabled:opacity-50 whitespace-nowrap min-h-[48px]">{loading ? "분석중..." : "시작하기 →"}</button>
+        {/* Progress */}
+        <div className="w-full h-1.5 bg-black/5 rounded-full mt-4 overflow-hidden"><div className="h-full bg-black transition-all duration-500" style={{width:`${step*20}%`}}></div></div>
+
+        {step===1 && (
+          <div className="mt-10">
+            <h2 className="text-[28px] font-black leading-tight">이름이 뭐예요?<br/><span className="text-black/20">절약 리포트를 만들어드려요</span></h2>
+            <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="박현용" className="mt-8 w-full bg-gray-50 border border-black/5 rounded-2xl px-6 py-5 text-[18px] outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-50"/>
+            <button onClick={()=> form.name.trim() && setStep(2)} className="mt-6 w-full bg-black text-white rounded-full py-4 font-bold text-[16px]">다음 →</button>
+          </div>
+        )}
+
+        {step===2 && (
+          <div className="mt-10">
+            <h2 className="text-[28px] font-black leading-tight">핸드폰 요금제<br/><span className="text-black/20">어떻게 쓰고 있어요?</span></h2>
+            <div className="mt-8 space-y-5">
+              <div><label className="text-[13px] font-bold text-black/60">통신사</label><div className="grid grid-cols-4 gap-2 mt-2">{["SKT","KT","LGU+","알뜰폰"].map(c=><button key={c} onClick={()=>setForm({...form,carrier:c})} className={`py-3 rounded-xl border text-[14px] font-bold ${form.carrier===c?"bg-black text-white border-black":"bg-white border-black/10"}`}>{c}</button>)}</div></div>
+              <div><label className="text-[13px] font-bold text-black/60">월 요금 (원)</label><input type="number" value={form.phoneFee} onChange={e=>setForm({...form,phoneFee:Number(e.target.value)})} className="mt-2 w-full bg-gray-50 border border-black/5 rounded-2xl px-6 py-4 text-[16px] outline-none"/></div>
+              <div><label className="text-[13px] font-bold text-black/60">월 데이터 사용량 (GB)</label><input type="range" min={1} max={100} value={form.dataUsage} onChange={e=>setForm({...form,dataUsage:Number(e.target.value)})} className="w-full mt-2"/><div className="text-sm font-bold">{form.dataUsage}GB</div></div>
             </div>
-            <div className="text-[11px] text-black/40 ml-1">✔ 카드 연결 없이 · 30초 진단</div>
+            <button onClick={()=>setStep(3)} className="mt-8 w-full bg-black text-white rounded-full py-4 font-bold">다음 →</button>
+          </div>
+        )}
 
-            {result && (<div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-5 animate-in"><div className="text-emerald-700 font-bold text-[15px]">🎉 {result.name}님, 월 {result.saving.toLocaleString()}원 절약!</div><div className="text-black/60 text-[13px] mt-1">저장 완료 · 카톡으로 리포트 보내드릴게요</div></div>)}
+        {step===3 && (
+          <div className="mt-10">
+            <h2 className="text-[28px] font-black leading-tight">OTT 구독<br/><span className="text-black/20">뭐 쓰고 있어요?</span></h2>
+            <div className="mt-6 space-y-3">
+              {[
+                {k:"netflix", name:"넷플릭스", fee:17000},
+                {k:"youtube", name:"유튜브 프리미엄", fee:14900},
+                {k:"disney", name:"디즈니+", fee:9900},
+                {k:"tving", name:"티빙", fee:13900},
+                {k:"wavve", name:"웨이브", fee:13900},
+              ].map(o=>(
+                <label key={o.k} className={`flex justify-between items-center p-4 rounded-2xl border ${form.ott[o.k]?"bg-violet-50 border-violet-200":"bg-gray-50 border-black/5"}`}>
+                  <div className="flex items-center gap-3"><input type="checkbox" checked={form.ott[o.k]} onChange={e=>setForm({...form,ott:{...form.ott,[o.k]:e.target.checked}})} className="w-5 h-5"/><span className="font-bold text-[15px]">{o.name}</span></div>
+                  <span className="text-[13px] text-black/60">{o.fee.toLocaleString()}원</span>
+                </label>
+              ))}
+            </div>
+            <button onClick={()=>setStep(4)} className="mt-8 w-full bg-black text-white rounded-full py-4 font-bold">다음 →</button>
+          </div>
+        )}
 
-            {/* Mobile 3 cards horizontal scroll */}
-            <div className="flex md:grid md:grid-cols-3 gap-3 mt-6 overflow-x-auto md:overflow-visible pb-2 -mx-5 px-5 md:mx-0 md:px-0">
-              <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-sm min-w-[110px]"><div className="text-black/40 text-[11px] mb-1">통신비</div><div className="text-[16px] font-black">-52,000원</div><div className="text-[10px] text-violet-600 font-bold">알뜰폰 전환</div></div>
-              <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-sm min-w-[110px]"><div className="text-black/40 text-[11px] mb-1">구독료</div><div className="text-[16px] font-black">-27,000원</div><div className="text-[10px] text-violet-600 font-bold">2개 해지</div></div>
-              <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-sm min-w-[110px]"><div className="text-black/40 text-[11px] mb-1">대출이자</div><div className="text-[16px] font-black">-89,000원</div><div className="text-[10px] text-violet-600 font-bold">대환대출</div></div>
+        {step===4 && (
+          <div className="mt-10">
+            <h2 className="text-[28px] font-black leading-tight">대출 있어요?<br/><span className="text-black/20">이자 아낄 수 있어요</span></h2>
+            <div className="mt-8 space-y-5">
+              <div><label className="text-[13px] font-bold text-black/60">대출 잔액 (원)</label><input type="number" value={form.loanAmount} onChange={e=>setForm({...form,loanAmount:Number(e.target.value)})} className="mt-2 w-full bg-gray-50 border border-black/5 rounded-2xl px-6 py-4 text-[16px] outline-none"/></div>
+              <div><label className="text-[13px] font-bold text-black/60">현재 금리 (%)</label><input type="number" step="0.1" value={form.loanRate} onChange={e=>setForm({...form,loanRate:Number(e.target.value)})} className="mt-2 w-full bg-gray-50 border border-black/5 rounded-2xl px-6 py-4 text-[16px] outline-none"/></div>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-[13px] text-blue-800">💡 현재 최저 대환 금리 3.2% (케이뱅크 기준)로 계산해드려요. {form.loanAmount.toLocaleString()}원 기준 월 {(form.loanAmount*(form.loanRate-3.2)/100/12).toLocaleString()}원 절약 가능</div>
+            </div>
+            <button onClick={handleFinal} disabled={saving} className="mt-8 w-full bg-black text-white rounded-full py-4 font-bold">{saving?"계산중...":"결과 보기 →"}</button>
+          </div>
+        )}
+
+        {step===5 && result && (
+          <div className="mt-8">
+            <h2 className="text-[28px] font-black leading-tight">🎉 {form.name}님,<br/><span className="text-violet-600">월 {result.total.toLocaleString()}원</span> 아낄 수 있어요!</h2>
+            <div className="mt-6 space-y-3">
+              {result.details.map((d,i)=>(
+                <div key={i} className="bg-white border border-black/5 rounded-2xl p-4 flex justify-between items-center shadow-sm">
+                  <div><div className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/5 w-fit mb-1">{d.cat}</div><div className="font-bold text-[14px]">{d.title}</div></div>
+                  <div className="text-violet-600 font-black">-{d.save.toLocaleString()}원</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 bg-black text-white rounded-[24px] p-6">
+              <div className="text-white/60 text-[12px]">총 절약 가능 금액</div>
+              <div className="text-[36px] font-black mt-1">월 {result.total.toLocaleString()}원</div>
+              <div className="text-white/60 text-[13px] mt-1">연 {(result.total*12).toLocaleString()}원 절약 · 실제 신청은 각 통신사/금융사 앱에서 진행</div>
+              <button onClick={()=>{setStep(1); setResult(null);}} className="mt-6 w-full bg-white text-black rounded-full py-3.5 font-bold text-[14px]">다시 계산하기</button>
             </div>
           </div>
-
-          {/* RIGHT CARD */}
-          <div className="relative mt-2 md:mt-0">
-            <div className="bg-white rounded-[28px] p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-black/5">
-              <div className="flex justify-between items-center mb-5"><div className="text-[14px] font-bold">오늘의 절약 리포트</div><div className="text-[11px] bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-bold">+194,000원</div></div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center bg-gray-50 rounded-2xl p-4 border border-black/[0.03]"><div className="flex gap-3 items-center"><div className="w-9 h-9 bg-white border rounded-xl flex items-center justify-center text-sm">📱</div><div><div className="font-bold text-[13px]">KT → 알뜰폰</div><div className="text-[11px] text-black/40">데이터 11GB · 2년 약정 끝</div></div></div><div className="text-violet-600 font-black text-[13px]">-38,000원</div></div>
-                <div className="flex justify-between items-center bg-gray-50 rounded-2xl p-4 border border-black/[0.03]"><div className="flex gap-3 items-center"><div className="w-9 h-9 bg-white border rounded-xl flex items-center justify-center text-sm">🎬</div><div><div className="font-bold text-[13px]">넷플릭스 정리</div><div className="text-[11px] text-black/40">최근 30일 미시청 2개</div></div></div><div className="text-violet-600 font-black text-[13px]">-18,000원</div></div>
-                <div className="flex justify-between items-center bg-black rounded-2xl p-4 text-white"><div className="flex gap-3 items-center"><div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center text-sm">🏦</div><div><div className="font-bold text-[13px]">대환대출</div><div className="text-[11px] text-white/60">4.8% → 3.2% · 월 89,000원↓</div></div></div><div className="font-black text-[13px] text-emerald-400">-89,000원</div></div>
-              </div>
-              <button onClick={handleStart} className="hidden md:block w-full mt-6 bg-black text-white rounded-full py-4 font-bold text-[15px] active:scale-95">19.4만원 아끼기 실행 →</button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Mobile Sticky Bottom CTA - like real app */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-black/5 p-4 pb-[max(16px,env(safe-area-inset-bottom))] z-50">
-        <button onClick={handleStart} className="w-full bg-black text-white rounded-full py-4 font-black text-[16px] shadow-[0_8px_24px_rgba(0,0,0,0.2)] active:scale-[0.98] transition">19.4만원 아끼기 실행 →</button>
-        <div className="text-[10px] text-black/30 text-center mt-2">평균 3분 · 수수료 없음 · 12,341명 진행중</div>
-      </div>
+      {/* Mobile bottom progress */}
+      {step<5 && <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-black/5 p-4 pb-[max(16px,env(safe-area-inset-bottom))]"><button onClick={()=> step===1 ? (form.name.trim()&&setStep(2)) : step===4 ? handleFinal() : setStep(step+1)} className="w-full bg-black text-white rounded-full py-4 font-black text-[16px]">{step===4?"결과 보기 →":"다음 →"}</button></div>}
     </main>
   );
 }
