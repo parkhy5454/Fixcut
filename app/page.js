@@ -32,6 +32,21 @@ const Icons = {
   referral: (a)=> <div className={"w-6 h-6 flex items-center justify-center rounded-lg "+(a?"bg-amber-400 text-black":"bg-amber-50")}><span className="text-[12px]">♥</span></div>,
 };
 
+const TabIcon = ({active, color, children}) => (
+  <div className={"w-11 h-8 rounded-2xl flex items-center justify-center transition-all duration-200 "+(active?"-translate-y-0.5":"")}
+       style={{backgroundColor: active ? color+"1F" : "transparent"}}>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? color : "#9CA3AF"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+  </div>
+);
+
+const NAV = [
+  {key:"home", label:"홈", color:"#111111", icon:<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>},
+  {key:"diag", label:"진단", color:"#7C3AED", icon:<><path d="M4 19V5"/><path d="M4 19h16"/><path d="m8 15 3-4 3 2 5-6"/></>},
+  {key:"saving", label:"절약", color:"#10B981", icon:<><circle cx="12" cy="12" r="9"/><path d="M9 9h4.5a1.5 1.5 0 0 1 0 3h-2.5a1.5 1.5 0 0 0 0 3H15"/><path d="M12 7v10"/></>},
+  {key:"referral", label:"추천", color:"#F59E0B", icon:<path d="M12 20s-7.5-4.4-7.5-9.5A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7.5 2.5C19.5 15.6 12 20 12 20z"/>},
+  {key:"my", label:"내정보", color:"#3B82F6", icon:<><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></>},
+];
+
 export default function Page(){
   const [tab,setTab]=useState("home");
   const [auth,setAuth]=useState(null);
@@ -469,12 +484,14 @@ export default function Page(){
         </div>
       </div></div>}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50"><div className="max-w-[480px] mx-auto px-1 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
-        <button onClick={()=>setTab("home")} className="flex flex-col items-center py-1.5 gap-1">{Icons.home(tab==="home")}<span className={"text-[10px] font-bold "+(tab==="home"?"text-black":"text-black/40")}>홈</span></button>
-        <button onClick={()=>setTab("diag")} className="flex flex-col items-center py-1.5 gap-1">{Icons.diag(tab==="diag")}<span className={"text-[10px] font-bold "+(tab==="diag"?"text-black":"text-black/40")}>진단</span></button>
-        <button onClick={()=>setTab("saving")} className="flex flex-col items-center py-1.5 gap-1">{Icons.saving(tab==="saving")}<span className={"text-[10px] font-bold "+(tab==="saving"?"text-violet-600":"text-black/40")}>절약</span></button>
-        <button onClick={()=>setTab("referral")} className="flex flex-col items-center py-1.5 gap-1 relative">{Icons.referral(tab==="referral")}<span className={"text-[10px] font-bold "+(tab==="referral"?"text-amber-600":"text-black/40")}>추천</span>{auth && myReferrals.length>0 && <span className="absolute -top-0.5 right-3 w-2 h-2 bg-red-500 rounded-full"></span>}</button>
-        <button onClick={()=>setTab("my")} className="flex flex-col items-center py-1.5 gap-1">{Icons.my(tab==="my")}<span className={"text-[10px] font-bold "+(tab==="my"?"text-black":"text-black/40")}>내정보</span></button>
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50 shadow-[0_-6px_24px_rgba(0,0,0,0.05)]"><div className="max-w-[480px] mx-auto px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
+        {NAV.map(n=>{const on=tab===n.key; return (
+          <button key={n.key} onClick={()=>setTab(n.key)} className="flex flex-col items-center pt-1 gap-0.5 relative">
+            <TabIcon active={on} color={n.color}>{n.icon}</TabIcon>
+            <span className="text-[12px] font-bold transition-colors" style={{color: on ? n.color : "#9CA3AF"}}>{n.label}</span>
+            {n.key==="referral" && auth && myReferrals.length>0 && <span className="absolute top-0 right-3 w-2 h-2 bg-red-500 rounded-full"></span>}
+          </button>
+        ); })}
       </div>
       {isAdmin && <div className="border-t mt-1 pt-1 flex justify-center"><button onClick={()=>{setTab("admin"); loadAdmin();}} className={"flex flex-col items-center py-1 gap-0.5 "+(tab==="admin"?"text-red-500":"text-red-500/50")}><div className={"w-5 h-5 flex items-center justify-center rounded-md "+(tab==="admin"?"bg-red-500 text-white":"bg-red-50")}><span className="text-[10px]">⚑</span></div><span className="text-[9px] font-bold">관리</span></button></div>}
       </div></div>
