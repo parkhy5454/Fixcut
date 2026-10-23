@@ -4,6 +4,33 @@ import { useState } from "react";
 
 export default function Page() {
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const handleStart = async () => {
+    if (!name.trim()) {
+      alert("이름을 입력해주세요!");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ name, saving: 194000 });
+      } else {
+        alert("저장 실패: " + data.error);
+      }
+    } catch (e) {
+      alert("오류: " + e.message);
+    }
+    setLoading(false);
+  };
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
       <div className="max-w-6xl mx-auto px-6 py-12">
@@ -23,17 +50,29 @@ export default function Page() {
             </h1>
             <p className="text-white/60 text-lg mb-8">통신·구독·대출 3분 스캔 → 원클릭 실행</p>
             
-            <div className="flex gap-2 mb-12">
+            <div className="flex gap-2 mb-8">
               <input 
                 value={name}
                 onChange={(e)=>setName(e.target.value)}
+                onKeyDown={(e)=> e.key === 'Enter' && handleStart()}
                 placeholder="이름 입력 (박현용)"
                 className="bg-white/10 border border-white/20 rounded-full px-6 py-3 w-64 outline-none focus:border-violet-500"
               />
-              <button className="bg-white text-black rounded-full px-8 py-3 font-bold hover:bg-white/90 transition">
-                시작하기 →
+              <button 
+                onClick={handleStart}
+                disabled={loading}
+                className="bg-white text-black rounded-full px-8 py-3 font-bold hover:bg-white/90 transition disabled:opacity-50"
+              >
+                {loading ? "분석중..." : "시작하기 →"}
               </button>
             </div>
+
+            {result && (
+              <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-2xl p-6 mb-8 animate-pulse">
+                <div className="text-emerald-400 font-bold text-xl">🎉 {result.name}님, 분석 완료!</div>
+                <div className="text-white/80 mt-2">월 {result.saving.toLocaleString()}원 절약 가능해요. DB에 저장되었습니다!</div>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-4">
@@ -77,7 +116,7 @@ export default function Page() {
                   <div className="text-emerald-400 font-bold">-89,000원</div>
                 </div>
               </div>
-              <button className="w-full mt-6 bg-white text-black rounded-full py-4 font-black">
+              <button onClick={handleStart} className="w-full mt-6 bg-white text-black rounded-full py-4 font-black">
                 19.4만원 아끼기 실행 →
               </button>
             </div>
