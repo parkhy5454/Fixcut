@@ -43,8 +43,9 @@ const NAV = [
   {key:"home", label:"홈", color:"#111111", icon:<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>},
   {key:"diag", label:"진단", color:"#7C3AED", icon:<><path d="M4 19V5"/><path d="M4 19h16"/><path d="m8 15 3-4 3 2 5-6"/></>},
   {key:"saving", label:"절약", color:"#10B981", icon:<><circle cx="12" cy="12" r="9"/><path d="M9 9h4.5a1.5 1.5 0 0 1 0 3h-2.5a1.5 1.5 0 0 0 0 3H15"/><path d="M12 7v10"/></>},
+  {key:"records", label:"기록", color:"#0EA5E9", icon:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>},
   {key:"referral", label:"추천", color:"#F59E0B", icon:<path d="M12 20s-7.5-4.4-7.5-9.5A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7.5 2.5C19.5 15.6 12 20 12 20z"/>},
-  {key:"my", label:"내정보", color:"#3B82F6", icon:<><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></>},
+  {key:"my", label:"설정", color:"#64748B", icon:<><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></>},
 ];
 
 export default function Page(){
@@ -155,7 +156,7 @@ export default function Page(){
   };
   const [myRecords,setMyRecords]=useState([]);
   useEffect(()=>{
-    if(tab!=="my" || !auth?.email) return;
+    if(tab!=="records" || !auth?.email) return;
     fetch("/api/my-diagnoses?email="+encodeURIComponent(auth.email), {headers: authHeaders()})
       .then(r=>r.json())
       .then(d=>setMyRecords(d.ok ? (d.savings||[]) : null))
@@ -431,6 +432,30 @@ export default function Page(){
         {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-4 text-[11px] text-black/40 leading-relaxed">※ 추정치입니다. 알뜰폰 요금은 데이터 15GB 이하 기준 19,900원(초과 29,700원), 대환 기준금리는 3.2%로 가정하고, 대출 원금 전체를 금리 차이만큼 낮춘다고 계산했습니다. 기준일 2026-10-23, 실제 조건과 결과는 다를 수 있습니다.</div>
                 <div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
+        {tab==="records" && <div className="mt-6">
+          {!auth ? <div className="text-center py-20"><div className="font-bold">로그인이 필요해요</div><button onClick={()=>setShowAuth("login")} className="mt-4 bg-black text-white rounded-full px-6 py-2">로그인</button></div> :
+          <>
+            <div className="mt-6">
+              <h3 className="font-black text-[16px]">내 진단 기록</h3>
+              {myRecords===null ? <p className="text-[12px] text-black/50 mt-2">기록을 보려면 다시 로그인해 주세요</p>
+                : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
+                : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
+                    <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{String(r.created_at).slice(0,10)}</span></div>
+                    {(() => {
+                      const items = r.details || [];
+                      const carrier = items.filter(d=>d.title.includes("알뜰폰"));
+                      const others = items.filter(d=>!d.title.includes("알뜰폰"));
+                      return <div className="text-[12px] text-black/50 mt-1 space-y-1">
+                        {carrier.length>0 && <div>{carrier.map(d=>d.title).join(" / ")}</div>}
+                        {others.length>0 && <div>{others.map(d=>d.title).join(" / ")}</div>}
+                      </div>;
+                    })()}
+                  </div>)}</div>}
+            </div>
+
+          </>}
+        </div>}
+
         {tab==="referral" && <div className="mt-6">
           <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
           <div className="mt-6 bg-black text-white rounded-[24px] p-6">
@@ -473,23 +498,8 @@ export default function Page(){
 
 
             <div className="mt-6">
-              <h3 className="font-black text-[16px]">내 진단 기록</h3>
-              {myRecords===null ? <p className="text-[12px] text-black/50 mt-2">기록을 보려면 다시 로그인해 주세요</p>
-                : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
-                : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
-                    <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{String(r.created_at).slice(0,10)}</span></div>
-                    {(() => {
-                      const items = r.details || [];
-                      const carrier = items.filter(d=>d.title.includes("알뜰폰"));
-                      const others = items.filter(d=>!d.title.includes("알뜰폰"));
-                      return <div className="text-[12px] text-black/50 mt-1 space-y-1">
-                        {carrier.length>0 && <div>{carrier.map(d=>d.title).join(" / ")}</div>}
-                        {others.length>0 && <div>{others.map(d=>d.title).join(" / ")}</div>}
-                      </div>;
-                    })()}
-                  </div>)}</div>}
+              <button onClick={()=>{localStorage.removeItem("fixcut_auth"); localStorage.removeItem("fixcut_token"); setAuth(null); setMyRecords([]); setTab("home");}} className="w-full bg-black/5 rounded-full py-3 font-bold text-[13px]">로그아웃</button>
             </div>
-
             <div className="mt-8 text-right">
               <button onClick={async()=>{
                 if(!confirm("정말 탈퇴하시겠어요?\n회원 정보와 진단 기록이 모두 삭제되며 되돌릴 수 없습니다.")) return;
@@ -536,7 +546,7 @@ export default function Page(){
         </div>
       </div></div>}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50 shadow-[0_-6px_24px_rgba(0,0,0,0.05)]"><div className="max-w-[480px] mx-auto px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50 shadow-[0_-6px_24px_rgba(0,0,0,0.05)]"><div className="max-w-[480px] mx-auto px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-6 gap-0.5">
         {NAV.map(n=>{const on=tab===n.key; return (
           <button key={n.key} onClick={()=>setTab(n.key)} className="flex flex-col items-center pt-1 gap-0.5 relative">
             <TabIcon active={on} color={n.color}>{n.icon}</TabIcon>
