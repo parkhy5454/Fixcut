@@ -1,6 +1,6 @@
 
 import { neon } from "@neondatabase/serverless";
-import { hashPassword, verifyPassword, isLegacyPlain } from "../password.js";
+import { hashPassword, verifyPassword, isLegacyPlain, makeSessionToken } from "../password.js";
 export async function POST(req){
   try{
     const {email,password} = await req.json();
@@ -11,12 +11,14 @@ export async function POST(req){
     const rows = await sql`SELECT id, name, phone, email, password FROM users WHERE LOWER(email)=${cleanEmail} LIMIT 1`;
     const row = rows[0];
     if(!row || !verifyPassword(password, row.password)) return Response.json({ok:false,error:"not found"},{status:401});
+    let stored = row.password;
     // 예전 평문 비밀번호는 로그인 성공 시 해시로 교체
     if(isLegacyPlain(row.password)){
-      await sql`UPDATE users SET password=${hashPassword(password)} WHERE id=${row.id}`;
+      stored = hashPassword(password);
+      await sql`UPDATE users SET password=${stored} WHERE id=${row.id}`;
     }
     const {password: _pw, ...user} = row;
-    return Response.json({ok:true,user});
+    return Response.json({ok:true, user, token: makeSessionToken(row.email, stored)});
   }catch(e){
     console.error(e);
     return Response.json({ok:false,error:String(e)},{status:500});

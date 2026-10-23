@@ -1,6 +1,6 @@
 
 import { neon } from "@neondatabase/serverless";
-import { hashPassword, verifyPassword } from "../password.js";
+import { hashPassword, verifyPassword, makeSessionToken } from "../password.js";
 export async function POST(req){
   try{
     const {oldEmail, currentPassword, name, phone, email, newPassword} = await req.json();
@@ -20,9 +20,10 @@ export async function POST(req){
     }
     const id = found[0].id;
     const pw = (newPassword||"").trim();
+    const newHash = pw ? hashPassword(pw) : null;
     try{
       const rows = pw
-        ? await sql`UPDATE users SET name=${cleanName}, phone=${cleanPhone}, email=${cleanEmail}, password=${hashPassword(pw)} WHERE id=${id} RETURNING id`
+        ? await sql`UPDATE users SET name=${cleanName}, phone=${cleanPhone}, email=${cleanEmail}, password=${newHash} WHERE id=${id} RETURNING id`
         : await sql`UPDATE users SET name=${cleanName}, phone=${cleanPhone}, email=${cleanEmail} WHERE id=${id} RETURNING id`;
       if(rows.length === 0) return Response.json({ok:false, error:"회원을 찾을 수 없습니다"}, {status:404});
     }catch(e){
@@ -31,7 +32,7 @@ export async function POST(req){
       if(msg.includes("users_phone_key")) return Response.json({ok:false, error:"이미 등록된 핸드폰 번호입니다"}, {status:409});
       throw e;
     }
-    return Response.json({ok:true});
+    return Response.json({ok:true, token: makeSessionToken(cleanEmail, newHash || found[0].password)});
   }catch(e){
     console.error(e);
     return Response.json({ok:false,error:String(e)},{status:500});
