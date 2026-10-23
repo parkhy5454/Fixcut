@@ -162,6 +162,30 @@ export default function Page(){
       .catch(()=>setMyRecords(null));
   },[tab, auth]);
 
+  // 절약 탭을 열었는데 이 브라우저에 결과가 없으면, DB의 최근 진단 기록을 불러온다
+  useEffect(()=>{
+    if(tab!=="saving" || !auth?.email || result) return;
+    fetch("/api/my-diagnoses?email="+encodeURIComponent(auth.email), {headers: authHeaders()})
+      .then(r=>r.json())
+      .then(d=>{
+        const latest = d.ok && d.savings && d.savings[0];
+        if(!latest) return;
+        setResult({total: latest.total, details: latest.details || []});
+        const inp = latest.inputs;
+        if(inp && inp.carrier){
+          setForm(prev=>({
+            ...prev,
+            carrier: inp.carrier,
+            phoneFee: inp.phoneFee || prev.phoneFee,
+            dataUsage: inp.dataUsage || prev.dataUsage,
+            ott: inp.ott || prev.ott,
+            loans: (inp.loans && inp.loans.length) ? inp.loans : prev.loans
+          }));
+        }
+      })
+      .catch(()=>{});
+  },[tab, auth, result]);
+
   // 관리자 여부는 서버(DB의 is_admin)가 판단한다
   const [isAdminUser,setIsAdminUser]=useState(false);
   useEffect(()=>{
