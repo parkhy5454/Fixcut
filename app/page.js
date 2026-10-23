@@ -450,14 +450,15 @@ export default function Page(){
                 : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
                 : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
                     <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{String(r.created_at).slice(0,10)}</span></div>
-                    <div className="text-[12px] text-black/50 mt-1">{(r.details||[]).map(d=>d.title).join(" / ")}</div>
-                    {r.inputs && r.inputs.carrier && <div className="mt-3 bg-gray-50 rounded-xl p-3">
-                      <div className="text-[11px] font-bold text-black/50">입력한 정보</div>
-                      <div className="text-[12px] mt-1.5 space-y-1">
-                        <div>통신사: {r.inputs.carrier} / {formatComma(parseNumber(r.inputs.phoneFee))}원 / {r.inputs.dataUsage}GB</div>
-                        <div>대출: {(r.inputs.loans||[]).length}건 {(r.inputs.loans||[]).map(l=>(l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+(l.rate?l.rate+"% ":"")).join(", ")}</div>
-                      </div>
-                    </div>}
+                    {(() => {
+                      const items = r.details || [];
+                      const carrier = items.filter(d=>d.title.includes("알뜰폰"));
+                      const others = items.filter(d=>!d.title.includes("알뜰폰"));
+                      return <div className="text-[12px] text-black/50 mt-1 space-y-1">
+                        {carrier.length>0 && <div>{carrier.map(d=>d.title).join(" / ")}</div>}
+                        {others.length>0 && <div>{others.map(d=>d.title).join(" / ")}</div>}
+                      </div>;
+                    })()}
                   </div>)}</div>}
             </div>
 
