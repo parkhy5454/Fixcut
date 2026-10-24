@@ -13,7 +13,7 @@ export async function POST(req){
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true});
     const sql = neon(process.env.DATABASE_URL);
     if(!(await allowRequest(req, sql, "login", 20, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});
-    const rows = await sql`SELECT id, name, phone, phone_enc, email, password FROM users WHERE LOWER(email)=${cleanEmail} LIMIT 1`;
+    const rows = await sql`SELECT id, name, phone, phone_enc, email, password, verified_at FROM users WHERE LOWER(email)=${cleanEmail} LIMIT 1`;
     const row = rows[0];
     if(!row || !verifyPassword(password, row.password)) return Response.json({ok:false,error:"not found"},{status:401});
     let stored = row.password;
@@ -24,7 +24,7 @@ export async function POST(req){
     }
     await ensureTables(sql);
     const referral_code = await ensureReferralCode(sql, row.id, row.email);
-    const user = {name: row.name, phone: openPhone(row), email: row.email};
+    const user = {name: row.name, phone: openPhone(row), email: row.email, verified: !!row.verified_at};
     return Response.json({ok:true, user, token: makeSessionToken(row.email, stored), referral_code});
   }catch(e){
     console.error(e);

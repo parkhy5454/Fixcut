@@ -121,3 +121,8 @@ export function maskPhone(phone){
   if(d.length < 8) return "***";
   return d.slice(0, 3) + "-****-" + d.slice(-4);
 }
+
+// 키 기반 서명 (인증번호 해시 등에 사용)
+export function signText(text){
+  return createHmac("sha256", getKey()).update(text).digest("hex");
+}

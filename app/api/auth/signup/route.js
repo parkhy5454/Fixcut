@@ -49,7 +49,7 @@ export async function POST(req){
     const myCode = await ensureReferralCode(sql, user.id, cleanEmail);
     return Response.json({
       ok:true,
-      user:{name:user.name, phone:cleanPhone, email:user.email},
+      user:{name:user.name, phone:cleanPhone, email:user.email, verified:false},
       token: makeSessionToken(cleanEmail, pwHash),
       referral_code: myCode,
       referred

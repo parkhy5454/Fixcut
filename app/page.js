@@ -62,6 +62,7 @@ export default function Page(){
   const [result,setResult]=useState(null);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
   const [editMode,setEditMode]=useState(false);
+  const [verifyCode,setVerifyCode]=useState("");
   const [editForm,setEditForm]=useState({name:"",phone:"",email:"",password:"",newPassword:""});
   const [referralCode,setReferralCode]=useState("");
   const [myReferrals,setMyReferrals]=useState([]);
@@ -101,7 +102,7 @@ export default function Page(){
         .then(r=>r.json())
         .then(d=>{
           if(!d.ok||!d.user||d.mock) return;
-          const fresh={name:d.user.name, phone:d.user.phone, email:d.user.email};
+          const fresh={name:d.user.name, phone:d.user.phone, email:d.user.email, verified:d.user.verified===true};
           localStorage.setItem("fixcut_auth", JSON.stringify(fresh));
           setAuth(fresh);
           setEditForm(prev=>({...prev, name:fresh.name, phone:fresh.phone, email:fresh.email}));
@@ -288,6 +289,7 @@ export default function Page(){
       name: srv?.name ?? (isSignup ? authForm.name.trim() : authForm.email.trim().split("@")[0]),
       phone: srv?.phone ?? authForm.phone.trim(),
       email: srv?.email ?? authForm.email.trim().toLowerCase(),
+      verified: srv?.verified === true,
     };
     localStorage.setItem("fixcut_auth", JSON.stringify(user));
     // 추천 코드는 서버가 발급한 값을 사용한다
@@ -521,6 +523,29 @@ export default function Page(){
               <div className="mt-3 border rounded-2xl divide-y">
                 <button onClick={()=>{setEditMode(true); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="w-full flex justify-between items-center px-4 py-3 text-[13px]"><span>내 정보 수정</span><span className="text-black/30">›</span></button>
                 <button onClick={()=>{setEditMode(true); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="w-full flex justify-between items-center px-4 py-3 text-[13px]"><span>비밀번호 변경</span><span className="text-black/30">›</span></button>
+                <div className="w-full px-4 py-3 text-[13px]">
+                  <div className="flex justify-between items-center"><span>이메일 인증</span><span className={auth.verified?"text-emerald-600 font-bold":"text-amber-600 font-bold"}>{auth.verified?"인증 완료":"인증 필요"}</span></div>
+                  {!auth.verified && <div className="mt-1 text-[11px] text-black/50">인증해야 추천 포인트가 적립됩니다. 인증번호는 10분 동안 유효합니다.</div>}
+                  {!auth.verified && <div className="mt-3 flex gap-2">
+                    <button onClick={async()=>{
+                      try{
+                        const r=await fetch("/api/auth/verify/send",{method:"POST",headers:{"Content-Type":"application/json", ...authHeaders()},body:JSON.stringify({email:auth.email})});
+                        const d=await r.json().catch(()=>({}));
+                        if(d.verified){ const u={...auth, verified:true}; localStorage.setItem("fixcut_auth", JSON.stringify(u)); setAuth(u); return; }
+                        alert(r.ok ? "인증번호를 보냈습니다. 메일함을 확인해 주세요" : (d.error||"발송에 실패했습니다"));
+                      }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); }
+                    }} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">인증번호 받기</button>
+                    <input value={verifyCode} onChange={e=>setVerifyCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="6자리" inputMode="numeric" className="flex-1 min-w-0 bg-gray-50 border rounded-full px-4 py-2 text-[13px]"/>
+                    <button onClick={async()=>{
+                      try{
+                        const r=await fetch("/api/auth/verify/confirm",{method:"POST",headers:{"Content-Type":"application/json", ...authHeaders()},body:JSON.stringify({email:auth.email, code:verifyCode})});
+                        const d=await r.json().catch(()=>({}));
+                        if(r.ok && d.verified){ const u={...auth, verified:true}; localStorage.setItem("fixcut_auth", JSON.stringify(u)); setAuth(u); setVerifyCode(""); alert("인증이 완료되었습니다"); }
+                        else alert(d.error||"인증에 실패했습니다");
+                      }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); }
+                    }} className="bg-black text-white px-4 py-2 rounded-full text-[12px] font-bold">확인</button>
+                  </div>}
+                </div>
                 <button onClick={()=>{localStorage.removeItem("fixcut_auth"); localStorage.removeItem("fixcut_token"); setAuth(null); setMyRecords([]); setTab("home");}} className="w-full flex justify-between items-center px-4 py-3 text-[13px]"><span>로그아웃</span><span className="text-black/30">›</span></button>
                 <button onClick={async()=>{
                 if(!confirm("정말 탈퇴하시겠어요?\n회원 정보와 진단 기록이 모두 삭제되며 되돌릴 수 없습니다.")) return;
