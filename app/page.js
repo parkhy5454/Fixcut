@@ -63,6 +63,10 @@ export default function Page(){
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
   const [editMode,setEditMode]=useState(false);
   const [verifyCode,setVerifyCode]=useState("");
+  const [resetStep,setResetStep]=useState(null);
+  const [resetEmail,setResetEmail]=useState("");
+  const [resetCode,setResetCode]=useState("");
+  const [resetPw,setResetPw]=useState("");
   const [editForm,setEditForm]=useState({name:"",phone:"",email:"",password:"",newPassword:""});
   const [referralCode,setReferralCode]=useState("");
   const [myReferrals,setMyReferrals]=useState([]);
@@ -602,6 +606,38 @@ export default function Page(){
           {showAuth==="signup" && <div><div className="text-[11px] font-bold text-black/50 mb-1">친구 추천 코드 (선택)</div><input value={authForm.referralCode} onChange={e=>setAuthForm({...authForm,referralCode:e.target.value})} placeholder="추천 코드 있으면 입력" className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-[14px]"/><div className="text-[10px] text-amber-600 mt-1">추천 코드 입력하면 1만원 혜택!</div></div>}
           {showAuth==="signup" && <label className="flex items-start gap-2 text-[12px] text-black/60"><input type="checkbox" checked={authForm.agree} onChange={e=>setAuthForm({...authForm,agree:e.target.checked})} className="mt-0.5"/><span>[필수] 이용약관 및 개인정보 처리방침에 동의합니다</span></label>}
           <button onClick={submitAuth} className="w-full bg-black text-white rounded-full py-4 font-bold">{showAuth==="signup"?"가입하기 (1만원 혜택)":"로그인"}</button>
+          {showAuth==="login" && <button onClick={()=>{setResetStep("request"); setResetEmail(authForm.email); setResetCode(""); setResetPw("");}} className="w-full text-[12px] text-black/50 underline">비밀번호를 잊으셨나요?</button>}
+        </div>
+      </div></div>}
+      {resetStep && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-end justify-center p-4"><div className="bg-white rounded-[28px] w-full max-w-[400px] p-7 max-h-[90vh] overflow-auto">
+        <div className="flex justify-between"><h3 className="text-[20px] font-black">비밀번호 재설정</h3><button onClick={()=>setResetStep(null)} className="w-8 h-8 bg-black/5 rounded-full">✕</button></div>
+        <div className="mt-6 space-y-3">
+          <input value={resetEmail} onChange={e=>setResetEmail(e.target.value)} disabled={resetStep==="confirm"} placeholder="가입한 이메일" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 disabled:opacity-60"/>
+          {resetStep==="request" && <button onClick={async()=>{
+            try{
+              const r=await fetch("/api/auth/reset/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:resetEmail})});
+              const d=await r.json().catch(()=>({}));
+              if(r.ok){ setResetStep("confirm"); alert(d.message||"인증번호를 보냈습니다"); }
+              else alert(d.error||"요청에 실패했습니다");
+            }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); }
+          }} className="w-full bg-black text-white rounded-full py-4 font-bold">인증번호 받기</button>}
+          {resetStep==="confirm" && <>
+            <input value={resetCode} onChange={e=>setResetCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="인증번호 6자리" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
+            <input value={resetPw} onChange={e=>setResetPw(e.target.value)} type="password" placeholder="새 비밀번호 (8자 이상, 영문+숫자)" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
+            <button onClick={async()=>{
+              try{
+                const r=await fetch("/api/auth/reset/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:resetEmail, code:resetCode, newPassword:resetPw})});
+                const d=await r.json().catch(()=>({}));
+                if(r.ok && d.ok){
+                  alert("비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요");
+                  setResetStep(null);
+                  setAuthForm(prev=>({...prev, email:resetEmail, password:""}));
+                  setShowAuth("login");
+                } else alert(d.error||"변경에 실패했습니다");
+              }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); }
+            }} className="w-full bg-black text-white rounded-full py-4 font-bold">비밀번호 변경</button>
+            <button onClick={()=>setResetStep("request")} className="w-full text-[12px] text-black/50 underline">인증번호 다시 받기</button>
+          </>}
         </div>
       </div></div>}
 
