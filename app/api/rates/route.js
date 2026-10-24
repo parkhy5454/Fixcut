@@ -106,7 +106,11 @@ function summarizeSavings(base, option, asOf){
   }
   rows.sort((a, b) => b.topRate - a.topRate);
   if(rows.length === 0) return null;
-  return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3) };
+  // 기본 금리 순위: 기간이 같아야 공정하므로 12개월 상품을 먼저 본다 (없으면 전체)
+  const std = rows.filter(r => r.term === "12개월" && r.baseRate);
+  const basePool = std.length ? std : rows.filter(r => r.baseRate);
+  const baseTop = [...basePool].sort((a, b) => b.baseRate - a.baseRate).slice(0, 5);
+  return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3), baseTop, baseTerm: std.length ? "12개월" : "전체 기간" };
 }
 
 const CREDIT_BANDS = {
