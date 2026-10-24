@@ -67,6 +67,7 @@ export default function Page(){
   const [jeonseInfo,setJeonseInfo]=useState(null);
   const [pensionInfo,setPensionInfo]=useState(null);
   const [showRef,setShowRef]=useState(false);
+  const [showLoanRef,setShowLoanRef]=useState(false);
   const [savingInfo,setSavingInfo]=useState({deposit:null,savings:null});
   const [verifyCode,setVerifyCode]=useState("");
   const [resetStep,setResetStep]=useState(null);
@@ -336,6 +337,14 @@ export default function Page(){
     const row=(label,v,big)=><div className="flex justify-between items-baseline gap-2"><span className={"text-[12px] "+sub}>{label}</span><span className={"font-black whitespace-nowrap "+(big?"text-[18px]":"text-[13px]")}>{formatComma(v)}원<span className={"text-[10px] font-bold ml-1 "+sub}>(연 {formatComma(v*12)}원)</span></span></div>;
     return <div className={"rounded-2xl p-4 space-y-1.5 "+wrap}>{row("절약 총액 (월)",save,false)}{row("수익 총액 (월)",gain,false)}<div className={"border-t pt-2 mt-1 "+(dark?"border-white/20":"border-black/10")}>{row("전체 수익 (월)",tot,true)}</div><div className={"text-[10px] "+sub}>연 금액은 현재 조건이 1년 유지된다고 가정한 추정치입니다.</div></div>;
   };
+  const instField=(item, options, patch)=>{
+    const isCustom=!!item.instCustom;
+    const val=isCustom?"__custom__":(item.institution||"");
+    return <>
+      <select value={val} onChange={e=>{const v=e.target.value; if(v==="__custom__") patch({instCustom:true, institution:""}); else patch({instCustom:false, institution:v});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">기관 선택</option>{options.map(c=><option key={c} value={c}>{c}</option>)}<option value="__custom__">직접 입력</option></select>
+      {isCustom && <input value={item.institution||""} onChange={e=>patch({institution:e.target.value})} placeholder="기관명 직접 입력" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>}
+    </>;
+  };
   const CAT_ORDER=["통신","OTT","담보","신용","전세","대출","예금","적금","연금","기타"];
   const catOf=d=>d.cat || (String(d.title).includes("알뜰폰")?"통신":(String(d.title).includes("해지")?"OTT":(String(d.title).includes("대환")?"대출":"기타")));
   const sortDetails=arr=>[...arr].sort((a,b)=>CAT_ORDER.indexOf(catOf(a))-CAT_ORDER.indexOf(catOf(b)));
@@ -508,19 +517,7 @@ export default function Page(){
                       <option value="other">기타</option>
                     </select>
                     {loan.kind==="credit" && <div className="space-y-2"><select value={loan.cb||""} onChange={e=>{const nl=[...form.loans]; nl[idx].cb=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">CB 선택 (KCB / NICE)</option><option value="KCB">KCB</option><option value="NICE">NICE</option></select><input value={loan.score||""} onChange={e=>{const nl=[...form.loans]; nl[idx].score=e.target.value.replace(/[^0-9]/g,"").slice(0,4); setForm({...form, loans:nl});}} inputMode="numeric" placeholder="신용점수 (0~1000)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/></div>}
-                    <select value={loan.institution} onChange={e=>{const nl=[...form.loans]; nl[idx].institution=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold">
-                      <option value="">대출 기관 선택</option>
-                      <option value="KB국민은행">KB국민은행</option>
-                      <option value="신한은행">신한은행</option>
-                      <option value="우리은행">우리은행</option>
-                      <option value="하나은행">하나은행</option>
-                      <option value="NH농협">NH농협</option>
-                      <option value="카카오뱅크">카카오뱅크</option>
-                      <option value="토스뱅크">토스뱅크</option>
-                      <option value="케이뱅크">케이뱅크</option>
-                      <option value="기타 은행">기타 은행</option>
-                      <option value="카드론/캐피탈">카드론/캐피탈</option>
-                    </select>
+                    {instField(loan, ["KB국민은행","신한은행","우리은행","하나은행","NH농협","카카오뱅크","토스뱅크","케이뱅크","기타 은행","카드론/캐피탈"], patch=>{const nl=[...form.loans]; nl[idx]={...nl[idx], ...patch}; setForm({...form, loans:nl});})}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="relative">
                         <input value={loan.amount} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const nl=[...form.loans]; if(raw===""){nl[idx].amount="";} else {nl[idx].amount=formatComma(Number(raw));} setForm({...form, loans:nl});}} placeholder="30,000,000" inputMode="numeric" className="w-full bg-white border rounded-xl px-4 py-3.5 pr-8 text-[14px] font-bold"/>
@@ -546,7 +543,7 @@ export default function Page(){
                 <div key={idx} className="border rounded-2xl p-4 mt-3 space-y-2">
                   <div className="flex justify-between items-center"><span className="text-[12px] font-bold text-black/50">예금·적금 {idx+1}</span><button onClick={()=>setForm({...form, deposits:(form.deposits||[]).filter((_,i)=>i!==idx)})} className="text-[11px] bg-red-50 text-red-500 border border-red-100 rounded-full px-3 py-1">삭제</button></div>
                   <select value={dep.kind||""} onChange={e=>{const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], kind:e.target.value}; setForm({...form, deposits:nd});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">종류 선택</option><option value="deposit">정기예금</option><option value="savings">적금</option></select>
-                  <select value={dep.institution||""} onChange={e=>{const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], institution:e.target.value}; setForm({...form, deposits:nd});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">기관 선택</option>{depInstList(dep.kind).map(c=><option key={c} value={c}>{c}</option>)}</select>
+                  {instField(dep, depInstList(dep.kind), patch=>{const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], ...patch}; setForm({...form, deposits:nd});})}
                   <input value={dep.amount||""} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], amount: raw===""?"":formatComma(Number(raw))}; setForm({...form, deposits:nd});}} inputMode="numeric" placeholder="예금 잔액 또는 월 납입금 (원)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                   <input value={dep.rate||""} onChange={e=>{let v=e.target.value.replace(/[^0-9.]/g,""); const parts=v.split("."); if(parts.length>2) v=parts[0]+"."+parts.slice(1).join(""); const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], rate:v}; setForm({...form, deposits:nd});}} inputMode="decimal" placeholder="현재 금리 (%)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                 </div>
@@ -563,7 +560,7 @@ export default function Page(){
                 <div key={idx} className="border rounded-2xl p-4 space-y-2">
                   <div className="flex justify-between items-center"><span className="text-[12px] font-bold text-black/50">연금 {idx+1}</span><button onClick={()=>setForm({...form, pensions:(form.pensions||[]).filter((_,i)=>i!==idx)})} className="text-[11px] bg-red-50 text-red-500 border border-red-100 rounded-full px-3 py-1">삭제</button></div>
                   <select value={pen.kind||""} onChange={e=>{const np=[...(form.pensions||[])]; np[idx]={...np[idx], kind:e.target.value}; setForm({...form, pensions:np});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">종류 선택</option><option value="savings">연금저축</option><option value="irp_safe">퇴직연금 IRP (예금성 원리금보장)</option><option value="irp_risky">퇴직연금 IRP (원리금비보장)</option></select>
-                  <select value={pen.company||""} onChange={e=>{const np=[...(form.pensions||[])]; np[idx]={...np[idx], company:e.target.value}; setForm({...form, pensions:np});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">가입 기관 선택</option>{penInstList(pen.kind).map(c=><option key={c} value={c}>{c}</option>)}</select>
+                  {instField(pen, penInstList(pen.kind), patch=>{const np=[...(form.pensions||[])]; np[idx]={...np[idx], ...patch}; setForm({...form, pensions:np});})}
                   <input value={pen.amount||""} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const np=[...(form.pensions||[])]; np[idx]={...np[idx], amount: raw===""?"":formatComma(Number(raw))}; setForm({...form, pensions:np});}} inputMode="numeric" placeholder="적립금 (원)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                   <input value={pen.rate||""} onChange={e=>{const v=e.target.value.replace(/[^0-9.-]/g,""); const np=[...(form.pensions||[])]; np[idx]={...np[idx], rate:v}; setForm({...form, pensions:np});}} inputMode="decimal" placeholder="현재 수익률 (%)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                 </div>
@@ -591,7 +588,8 @@ export default function Page(){
                     {Object.entries(pensionInfo.retirement.irp).map(([kind,list])=><div key={kind}><div className="text-black/50 mt-1">{kind}</div>{list.map((r,i)=><div key={i} className="flex justify-between gap-2"><span>{r.company}</span><span className="whitespace-nowrap">5년 {r.avg5}%</span></div>)}</div>)}
                     <div className="text-[11px] text-black/40 pt-1">과거 수익률은 미래 수익을 보장하지 않으며, 원리금보장과 비보장은 따로 비교해야 합니다.</div>
                   </div></div>}
-                {result.compare && result.compare.length>0 && <div className="mt-6"><div className="text-[13px] font-black">대출 금리 비교 <span className="text-[11px] font-bold text-black/40">(참고용, 절약액에는 포함 안 됨)</span></div><div className="mt-2 space-y-2">{result.compare.map((c,i)=><div key={i} className="border rounded-2xl p-3 text-[12px]"><div className="flex justify-between gap-2"><span className="font-bold">{c.kind} · 내 금리 {c.rate}%</span><span className="font-bold whitespace-nowrap">금감원 최저 {c.B}%</span></div><div className="text-black/50 mt-1">{c.text}</div>{c.special && <div className="text-black/40 mt-0.5">{c.special}</div>}</div>)}</div></div>}
+                <button onClick={()=>setShowLoanRef(!showLoanRef)} className="mt-6 w-full border rounded-2xl py-3.5 font-bold text-[13px] flex justify-between items-center px-4 hover:bg-gray-50"><span>대출 금리 비교 <span className="text-[11px] text-black/40">(참고용, 절약액 미포함)</span></span><span className="text-black/40">{showLoanRef?"접기 ▲":"보기 ▼"}</span></button>
+                {showLoanRef && result.compare && result.compare.length>0 && <div className="mt-6"><div className="text-[13px] font-black">대출 금리 비교 <span className="text-[11px] font-bold text-black/40">(참고용, 절약액에는 포함 안 됨)</span></div><div className="mt-2 space-y-2">{result.compare.map((c,i)=><div key={i} className="border rounded-2xl p-3 text-[12px]"><div className="flex justify-between gap-2"><span className="font-bold">{c.kind} · 내 금리 {c.rate}%</span><span className="font-bold whitespace-nowrap">금감원 최저 {c.B}%</span></div><div className="text-black/50 mt-1">{c.text}</div>{c.special && <div className="text-black/40 mt-0.5">{c.special}</div>}</div>)}</div></div>}
                 {result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-4 text-[11px] text-black/40 leading-relaxed">※ 추정치입니다. 알뜰폰 요금은 데이터 15GB 이하 기준 19,900원(초과 29,700원), 대환 기준금리는 {result.benchText ?? "3.2%(고정값)"}로 가정하고, 대출 원금 전체를 금리 차이만큼 낮춘다고 계산했습니다. {result.asOf ? "금감원 공시 기준 "+result.asOf+", " : ""}실제 조건과 결과는 다를 수 있습니다.</div><div className="mt-2 text-[11px] text-black/40 leading-relaxed">대환 기준금리는 금융감독원 '금융상품 한눈에'의 주택담보·신용·전세자금대출 상품별 평균금리 중 최저값이며, 우대 조건이 적용된 상품을 포함합니다. 실제 적용 금리는 개인의 신용도, 담보, 조건에 따라 달라질 수 있습니다. 신용대출 금리는 CB사(NICE·KCB) 신용점수 구간별로 공시된 직전월 신규 취급 대출의 가중평균금리입니다.</div>
                 <div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
