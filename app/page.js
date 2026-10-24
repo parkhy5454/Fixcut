@@ -518,12 +518,12 @@ export default function Page(){
                     </select>
                     {loan.kind==="credit" && <div className="space-y-2"><select value={loan.cb||""} onChange={e=>{const nl=[...form.loans]; nl[idx].cb=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">CB 선택 (KCB / NICE)</option><option value="KCB">KCB</option><option value="NICE">NICE</option></select><input value={loan.score||""} onChange={e=>{const nl=[...form.loans]; nl[idx].score=e.target.value.replace(/[^0-9]/g,"").slice(0,4); setForm({...form, loans:nl});}} inputMode="numeric" placeholder="신용점수 (0~1000)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/></div>}
                     {instField(loan, ["KB국민은행","신한은행","우리은행","하나은행","NH농협","카카오뱅크","토스뱅크","케이뱅크","기타 은행","카드론/캐피탈"], patch=>{const nl=[...form.loans]; nl[idx]={...nl[idx], ...patch}; setForm({...form, loans:nl});})}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
+                    <div className="grid grid-cols-2 gap-2 min-w-0">
+                      <div className="relative min-w-0">
                         <input value={loan.amount} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const nl=[...form.loans]; if(raw===""){nl[idx].amount="";} else {nl[idx].amount=formatComma(Number(raw));} setForm({...form, loans:nl});}} placeholder="30,000,000" inputMode="numeric" className="w-full bg-white border rounded-xl px-4 py-3.5 pr-8 text-[14px] font-bold"/>
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-black/40">원</span>
                       </div>
-                      <div className="relative">
+                      <div className="relative min-w-0">
                         <input value={loan.rate} onChange={e=>{let v=e.target.value.replace(/[^0-9.]/g,""); const parts=v.split("."); if(parts.length>2) v=parts[0]+"."+parts.slice(1).join(""); const nl=[...form.loans]; nl[idx].rate=v; setForm({...form, loans:nl});}} placeholder="4.8" inputMode="decimal" className="w-full bg-white border rounded-xl px-4 py-3.5 pr-8 text-[14px] font-bold"/>
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-black/40">%</span>
                       </div>
