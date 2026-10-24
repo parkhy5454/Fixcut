@@ -9,11 +9,12 @@ export async function GET(req){
     if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
     if(!process.env.DATABASE_URL) return Response.json({ok:true, savings:[]});
     const sql = neon(process.env.DATABASE_URL);
-    const users = await sql`SELECT password FROM users WHERE LOWER(email)=${email} LIMIT 1`;
+    const users = await sql`SELECT password, suspended_at FROM users WHERE LOWER(email)=${email} LIMIT 1`;
     // 토큰이 맞는 회원만 본인 기록을 볼 수 있다
     if(users.length === 0 || !checkSession(req, email, users[0].password)){
       return Response.json({ok:false, error:"로그인이 필요합니다"},{status:401});
     }
+    if(users[0].suspended_at) return Response.json({ok:false, error:"이용이 정지된 계정입니다"},{status:403});
     let savings = [];
     try{
       await ensureSavingColumns(sql);

@@ -7,8 +7,8 @@ export async function verifyAdmin(req){
   const email = (req.headers.get("x-user-email") || "").trim().toLowerCase();
   if(!email) return {ok:false, status:401};
   const sql = neon(process.env.DATABASE_URL);
-  const rows = await sql`SELECT password, is_admin FROM users WHERE LOWER(email)=${email} LIMIT 1`;
+  const rows = await sql`SELECT password, is_admin, suspended_at FROM users WHERE LOWER(email)=${email} LIMIT 1`;
   if(rows.length === 0 || !checkSession(req, email, rows[0].password)) return {ok:false, status:401};
-  if(rows[0].is_admin !== true) return {ok:false, status:403};
+  if(rows[0].is_admin !== true || rows[0].suspended_at) return {ok:false, status:403};
   return {ok:true, sql};
 }

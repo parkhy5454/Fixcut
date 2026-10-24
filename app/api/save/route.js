@@ -13,8 +13,11 @@ export async function POST(req){
     let owner = null;
     const email = (body.email||"").trim().toLowerCase();
     if(email){
-      const users = await sql`SELECT password FROM users WHERE LOWER(email)=${email} LIMIT 1`;
-      if(users.length > 0 && checkSession(req, email, users[0].password)) owner = email;
+      const users = await sql`SELECT password, suspended_at FROM users WHERE LOWER(email)=${email} LIMIT 1`;
+      if(users.length > 0 && checkSession(req, email, users[0].password)){
+        if(users[0].suspended_at) return Response.json({ok:false, error:"이용이 정지된 계정입니다"}, {status:403});
+        owner = email;
+      }
     }
 
     // 비회원은 IP당 10분에 10회, 회원은 30회까지만 저장 가능 (테이블 생성 전에 막는다)

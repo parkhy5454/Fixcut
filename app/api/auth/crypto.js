@@ -71,6 +71,7 @@ export function openSaving(row){
 export async function ensureUserColumns(sql){
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_enc TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_hash TEXT`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMPTZ`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS users_phone_hash_key ON users (phone_hash)`;
 }
 

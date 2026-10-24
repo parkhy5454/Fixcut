@@ -11,10 +11,11 @@ export async function GET(req){
     if(!process.env.DATABASE_URL) return Response.json({ok:true, code:null, balance:0, pending:0, items:[], referrals:[]});
     const sql = neon(process.env.DATABASE_URL);
     await ensureTables(sql);
-    const users = await sql`SELECT id, password FROM users WHERE LOWER(email)=${email} LIMIT 1`;
+    const users = await sql`SELECT id, password, suspended_at FROM users WHERE LOWER(email)=${email} LIMIT 1`;
     if(users.length === 0 || !checkSession(req, email, users[0].password)){
       return Response.json({ok:false, error:"로그인이 필요합니다"},{status:401});
     }
+    if(users[0].suspended_at) return Response.json({ok:false, error:"이용이 정지된 계정입니다"},{status:403});
     const code = await ensureReferralCode(sql, users[0].id, email);
     const bal = await sql`SELECT COALESCE(SUM(amount),0)::int AS balance FROM point_ledger WHERE LOWER(email)=${email} AND status='confirmed' AND (expires_at IS NULL OR expires_at > NOW())`;
     const pend = await sql`SELECT COALESCE(SUM(amount),0)::int AS pending FROM point_ledger WHERE LOWER(email)=${email} AND status='pending'`;

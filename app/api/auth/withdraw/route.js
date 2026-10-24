@@ -18,6 +18,8 @@ export async function POST(req){
     try{ await sql`DELETE FROM savings WHERE email=${email}`; }catch(e){ console.error("withdraw savings", e); }
     try{ await sql`DELETE FROM referrals WHERE LOWER(referred_email)=${email}`; }catch(e){ console.error("withdraw referrals", e); }
     try{ await sql`DELETE FROM point_ledger WHERE LOWER(email)=${email}`; }catch(e){ console.error("withdraw points", e); }
+    try{ await sql`DELETE FROM email_verifications WHERE email=${email}`; }catch(e){}
+    try{ await sql`DELETE FROM password_resets WHERE email=${email}`; }catch(e){}
     await sql`DELETE FROM users WHERE id=${rows[0].id}`;
     return Response.json({ok:true});
   }catch(e){
