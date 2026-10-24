@@ -480,7 +480,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>!l.kind && (l.amount || l.rate))){alert("대출 종류를 선택해 주세요. 주택담보 / 신용 / 전세 / 기타 중 골라 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
           </div>}
         </div>}
 
