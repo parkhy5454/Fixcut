@@ -49,9 +49,9 @@ function summarizeLoan(base, option, asOf){
   let rangeMin = null;
   let rangeMax = null;
   for(const o of option){
-    // 실제 금리 행(고정·변동·혼합)만 쓴다. 가산금리·가감조정금리는 금리에 더하거나 빼는 조정분이라 제외한다
+    // 가감조정금리(조정분)는 제외한다
     const typeNm = o.lend_rate_type_nm || o.crdt_lend_rate_type_nm || "";
-    if(!/고정|변동|혼합/.test(typeNm)) continue;
+    if(typeNm.includes("가감")) continue;
     // 주택담보: lend_rate_*, 신용대출: crdt_grad_* (신용등급별 금리, avg는 등급 평균)
     const avg = num(o.lend_rate_avg) ?? num(o.crdt_grad_avg) ?? num(o.lend_rate_min);
     if(!avg) continue;
@@ -98,6 +98,27 @@ function summarizeSavings(base, option, asOf){
   return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3) };
 }
 
+const CREDIT_GRADES = ["1","4","5","6","10","11","12","13"];
+// 신용대출: 등급별로 상품 중 가장 낮은 값. 값의 의미(가산분/완성금리)는 확인 중이라 원본 값을 그대로 쓴다
+function summarizeCredit(base, option, asOf){
+  const names = nameMap(base);
+  const grades = {};
+  for(const o of option){
+    const typeNm = o.crdt_lend_rate_type_nm || o.lend_rate_type_nm || "";
+    if(typeNm.includes("가감")) continue;
+    const b = names.get(o.fin_co_no + "|" + o.fin_prdt_cd) || {};
+    for(const g of CREDIT_GRADES){
+      const v = num(o["crdt_grad_" + g]);
+      if(!v) continue;
+      if(!grades[g] || v < grades[g].rate){
+        grades[g] = { rate: v, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", type: typeNm };
+      }
+    }
+  }
+  if(Object.keys(grades).length === 0) return null;
+  return { asOf, productCount: option.length, grades };
+}
+
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
@@ -113,7 +134,9 @@ export async function GET(req){
       const asOf = base[0]?.dcls_month || null;
       const summary = (type === "deposit" || type === "savings")
         ? summarizeSavings(base, option, asOf)
-        : summarizeLoan(base, option, asOf);
+        : type === "credit"
+          ? summarizeCredit(base, option, asOf)
+          : summarizeLoan(base, option, asOf);
       // 요약이 실패하면 실제 응답의 필드 이름만 남겨 두어 원인을 확인할 수 있게 한다 (금리 값은 제외)
       const fields = option[0] ? Object.keys(option[0]) : [];
       entry = { at: Date.now(), summary, fields, count: option.length };

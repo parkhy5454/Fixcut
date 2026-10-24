@@ -315,7 +315,7 @@ export default function Page(){
       if(!auth) alert("로그인하지 않아서 이 기록은 내 기록에 저장되지 않았어요");
     }catch(e){ alert("네트워크 오류로 진단 기록을 저장하지 못했습니다"); }
   };
-  const benchTextOf=(m,c,j)=>"주택담보 "+(m? m.benchmarkRate+"%" : "3.2%(고정값)")+", 신용 "+(c? c.benchmarkRate+"%" : "3.2%(고정값)")+", 전세 "+(j? j.benchmarkRate+"%" : "3.2%(고정값)")+" (상품별 평균금리 최저값)";
+  const benchTextOf=(m,c,j)=>"주택담보 "+(m? m.benchmarkRate+"%" : "3.2%(고정값)")+", 신용 "+(c&&c.grades? "등급별 금감원 공시 값" : "3.2%(고정값)")+", 전세 "+(j? j.benchmarkRate+"%" : "3.2%(고정값)")+" (상품별 평균금리 최저값)";
   const calc=(bench)=>{
     const bm = bench || {};
     const pick = k => (typeof bm[k] === "number" && bm[k] > 0) ? bm[k] : 3.2;
@@ -336,7 +336,7 @@ export default function Page(){
     form.loans.forEach((loan, idx)=>{
       const amt = parseNumber(loan.amount);
       const rate = parseFloat(loan.rate) || 0;
-      const B = loan.kind==="mortgage" ? pick("mortgage") : loan.kind==="credit" ? pick("credit") : loan.kind==="jeonse" ? pick("jeonse") : 3.2;
+      const B = loan.kind==="mortgage" ? pick("mortgage") : loan.kind==="credit" ? (bm.creditGrades?.[loan.grade]?.rate ?? 3.2) : loan.kind==="jeonse" ? pick("jeonse") : 3.2;
       if(amt>=1000000 && rate>B){
         const ms=Math.round(amt*(rate-B)/100/12);
         if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
@@ -452,6 +452,7 @@ export default function Page(){
                       <option value="jeonse">전세자금대출</option>
                       <option value="other">기타</option>
                     </select>
+                    {loan.kind==="credit" && <select value={loan.grade||""} onChange={e=>{const nl=[...form.loans]; nl[idx].grade=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">신용등급 선택</option>{["1","4","5","6","10","11","12","13"].map(g=><option key={g} value={g}>{g}등급</option>)}</select>}
                     <select value={loan.institution} onChange={e=>{const nl=[...form.loans]; nl[idx].institution=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold">
                       <option value="">대출 기관 선택</option>
                       <option value="KB국민은행">KB국민은행</option>
@@ -480,7 +481,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>!l.kind && (l.amount || l.rate))){alert("대출 종류를 선택해 주세요. 주택담보 / 신용 / 전세 / 기타 중 골라 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && !l.grade))){alert("대출 종류를 선택해 주세요. 신용대출은 신용등급도 골라 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, creditGrades: creditInfo?.grades ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
           </div>}
         </div>}
 
