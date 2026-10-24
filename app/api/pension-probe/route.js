@@ -10,14 +10,17 @@ export async function GET(){
     try{
       const url = `http://finlife.fss.or.kr/finlifeapi/${svc}.json?auth=${auth}&topFinGrpNo=060000&pageNo=1`;
       const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
+      const raw = await res.json().catch(() => ({}));
+      // 응답은 result 상자 안에 들어 있다
+      const data = raw.result && typeof raw.result === "object" ? raw.result : raw;
       const products = Array.isArray(data.products) ? data.products : [];
       const base = Array.isArray(data.baseList) ? data.baseList : products.map(p => p.baseinfo).filter(Boolean);
       out[svc] = {
         status: res.status,
         err_msg: data.err_msg ?? null,
         total_count: data.total_count ?? null,
-        topKeys: Object.keys(data).slice(0, 20),
+        topKeys: Object.keys(raw).slice(0, 20),
+        resultKeys: Object.keys(data).slice(0, 20),
         baseCount: base.length,
         sample: base.slice(0, 5).map(b => ({ kor_co_nm: b.kor_co_nm, fin_prdt_nm: b.fin_prdt_nm, avg_prft_rate: b.avg_prft_rate ?? null, btrm_prft_rate_1: b.btrm_prft_rate_1 ?? null, prdt_type_nm: b.prdt_type_nm ?? null })),
       };
