@@ -167,9 +167,8 @@ export default function Page(){
   useEffect(()=>{
     if(tab!=="records" || !auth?.email) return;
     fetch("/api/my-diagnoses?email="+encodeURIComponent(auth.email), {headers: authHeaders()})
-      .then(r=>r.json())
-      .then(d=>setMyRecords(d.ok ? (d.savings||[]) : null))
-      .catch(()=>setMyRecords(null));
+      .then(async r=>{ const d = await r.json().catch(()=>({})); if(r.status===401){ setMyRecords(null); return; } setMyRecords(d.ok ? (d.savings||[]) : "error"); })
+      .catch(()=>setMyRecords("error"));
   },[tab, auth]);
 
   // 절약 탭을 열었는데 이 브라우저에 결과가 없으면, DB의 최근 진단 기록을 불러온다
@@ -308,6 +307,14 @@ export default function Page(){
     setShowAuth(null);
   };
 
+  const saveDiagnosis = async (r) => {
+    try{
+      const res = await fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json", ...authHeaders()},body:JSON.stringify({name:form.name,phone:auth?.phone||"",email:auth?.email||"",total:r.total,details:r.details,inputs:{carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans}})});
+      const d = await res.json().catch(()=>({}));
+      if(!res.ok){ alert(d.error || "진단 기록을 저장하지 못했습니다"); return; }
+      if(!auth) alert("로그인하지 않아서 이 기록은 내 기록에 저장되지 않았어요");
+    }catch(e){ alert("네트워크 오류로 진단 기록을 저장하지 못했습니다"); }
+  };
   const benchTextOf=(m,c,j)=>"주택담보 "+(m? m.benchmarkRate+"%" : "3.2%(고정값)")+", 신용 "+(c? c.benchmarkRate+"%" : "3.2%(고정값)")+", 전세 "+(j? j.benchmarkRate+"%" : "3.2%(고정값)")+" (상품별 평균금리 최저값)";
   const calc=(bench)=>{
     const bm = bench || {};
@@ -473,7 +480,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); try{fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json", ...authHeaders()},body:JSON.stringify({name:form.name,phone:auth?.phone||"",email:auth?.email||"",total:r.total,details:r.details,inputs:{carrier:form.carrier,phoneFee:form.phoneFee,dataUsage:form.dataUsage,ott:form.ott,loans:form.loans}})});}catch(e){}}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
           </div>}
         </div>}
 
@@ -492,6 +499,7 @@ export default function Page(){
             <div className="mt-6">
               <h3 className="font-black text-[16px]">내 진단 기록</h3>
               {myRecords===null ? <p className="text-[12px] text-black/50 mt-2">기록을 보려면 다시 로그인해 주세요</p>
+                : myRecords==="error" ? <p className="text-[12px] text-red-500 mt-2">기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요</p>
                 : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
                 : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
                     <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{String(r.created_at).slice(0,10)}</span></div>

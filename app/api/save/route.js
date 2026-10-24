@@ -17,6 +17,8 @@ export async function POST(req){
       if(users.length > 0 && checkSession(req, email, users[0].password)){
         if(users[0].suspended_at) return Response.json({ok:false, error:"이용이 정지된 계정입니다"}, {status:403});
         owner = email;
+      }else{
+        return Response.json({ok:false, error:"로그인이 만료되었습니다. 다시 로그인한 뒤 저장해 주세요"}, {status:401});
       }
     }
 

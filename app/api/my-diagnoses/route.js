@@ -21,8 +21,9 @@ export async function GET(req){
       const rows = await sql`SELECT id, name, total, details, details_enc, inputs, inputs_enc, created_at FROM savings WHERE LOWER(email)=${email} ORDER BY id DESC LIMIT 50`;
       savings = rows.map(openSaving);
     }catch(e){
-      // savings 테이블이나 email 컬럼이 아직 없으면 기록이 없는 것으로 본다
-      console.error("my-diagnoses query", e);
+      // 테이블이 아직 없으면 기록이 없는 것으로 보고, 그 밖의 오류(예: 암호화 키 문제)는 알린다
+      if(!String(e).includes("does not exist")) throw e;
+      console.error("my-diagnoses no table", e);
     }
     return Response.json({ok:true, savings});
   }catch(e){
