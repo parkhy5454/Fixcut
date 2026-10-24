@@ -102,24 +102,41 @@ const CREDIT_BANDS = {
   "1": "900점 초과", "4": "801~900점", "5": "701~800점", "6": "601~700점",
   "10": "501~600점", "11": "401~500점", "12": "301~400점", "13": "300점 이하",
 };
-// 신용대출: 점수 구간별로 상품 중 가장 낮은 금리 (금리 구분이 "대출금리"인 행만 사용)
+function cbOf(v){
+  const t = String(v || "").toUpperCase();
+  if(t.includes("KCB")) return "KCB";
+  if(t.includes("NICE") || t.includes("나이스")) return "NICE";
+  return null;
+}
+// 신용대출: CB(KCB/NICE)별, 점수 구간별로 상품 중 가장 낮은 금리 (금리 구분이 "대출금리"인 행만 사용)
 function summarizeCredit(base, option, asOf){
   const names = nameMap(base);
-  const grades = {};
+  const cbKey = base[0] ? Object.keys(base[0]).find(k => /cb/i.test(k)) : null;
+  const byCb = {};
   for(const o of option){
     const typeNm = o.crdt_lend_rate_type_nm || "";
     if(!typeNm.includes("대출금리")) continue;
     const b = names.get(o.fin_co_no + "|" + o.fin_prdt_cd) || {};
+    const cb = cbKey ? (cbOf(b[cbKey]) || "OTHER") : "ALL";
+    if(!byCb[cb]) byCb[cb] = {};
+    const bucket = byCb[cb];
     for(const g of Object.keys(CREDIT_BANDS)){
       const v = num(o["crdt_grad_" + g]);
       if(!v) continue;
-      if(!grades[g] || v < grades[g].rate){
-        grades[g] = { rate: v, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", band: CREDIT_BANDS[g] };
+      if(!bucket[g] || v < bucket[g].rate){
+        bucket[g] = { rate: v, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", band: CREDIT_BANDS[g] };
       }
     }
   }
-  if(Object.keys(grades).length === 0) return null;
-  return { asOf, productCount: option.length, grades, bands: CREDIT_BANDS };
+  if(Object.keys(byCb).length === 0) return null;
+  return {
+    asOf,
+    productCount: option.length,
+    byCb,
+    bands: CREDIT_BANDS,
+    cbField: cbKey || null,
+    baseKeys: Object.keys(base[0] || {}),
+  };
 }
 
 export async function GET(req){
