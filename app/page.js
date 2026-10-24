@@ -52,7 +52,7 @@ export default function Page(){
   const [tab,setTab]=useState("home");
   const [auth,setAuth]=useState(null);
   const [showAuth,setShowAuth]=useState(null);
-  const [authForm,setAuthForm]=useState({name:"",phone:"",email:"",password:"",referralCode:""});
+  const [authForm,setAuthForm]=useState({name:"",phone:"",email:"",password:"",referralCode:"",agree:false});
   const [step,setStep]=useState(1);
   const [form,setForm]=useState({
     name:"", carrier:"KT", phoneFee:"69,000", dataUsage:"11",
@@ -260,10 +260,14 @@ export default function Page(){
       alert("이메일과 비밀번호를 입력해 주세요");
       return;
     }
+    if(isSignup && !authForm.agree){
+      alert("필수 약관에 동의해 주세요");
+      return;
+    }
     const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
     const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
     const body = isSignup
-      ? {name:authForm.name.trim(), phone:authForm.phone.trim(), email:authForm.email.trim(), password:authForm.password, referralCode:incomingRef||""}
+      ? {name:authForm.name.trim(), phone:authForm.phone.trim(), email:authForm.email.trim(), password:authForm.password, referralCode:incomingRef||"", agreeTerms:authForm.agree===true}
       : {email:authForm.email.trim(), password:authForm.password};
     let data;
     try{
@@ -571,6 +575,7 @@ export default function Page(){
           <input value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="이메일" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
           <input value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder="비밀번호" type="password" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/>
           {showAuth==="signup" && <div><div className="text-[11px] font-bold text-black/50 mb-1">친구 추천 코드 (선택)</div><input value={authForm.referralCode} onChange={e=>setAuthForm({...authForm,referralCode:e.target.value})} placeholder="추천 코드 있으면 입력" className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-[14px]"/><div className="text-[10px] text-amber-600 mt-1">추천 코드 입력하면 1만원 혜택!</div></div>}
+          {showAuth==="signup" && <label className="flex items-start gap-2 text-[12px] text-black/60"><input type="checkbox" checked={authForm.agree} onChange={e=>setAuthForm({...authForm,agree:e.target.checked})} className="mt-0.5"/><span>[필수] 이용약관 및 개인정보 처리방침에 동의합니다</span></label>}
           <button onClick={submitAuth} className="w-full bg-black text-white rounded-full py-4 font-bold">{showAuth==="signup"?"가입하기 (1만원 혜택)":"로그인"}</button>
         </div>
       </div></div>}

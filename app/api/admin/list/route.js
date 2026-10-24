@@ -14,6 +14,6 @@ export async function GET(req){
     }
     return Response.json({ok:true, users, savings});
   }catch(e){
-    return Response.json({ok:false, error:String(e)},{status:500});
+    return Response.json({ok:false, error:"서버 오류가 발생했습니다"},{status:500});
   }
 }

@@ -1,6 +1,6 @@
 
 import { neon } from "@neondatabase/serverless";
-import { hashPassword, verifyPassword, makeSessionToken } from "../password.js";
+import { hashPassword, verifyPassword, makeSessionToken, validatePassword } from "../password.js";
 export async function POST(req){
   try{
     const {oldEmail, currentPassword, name, phone, email, newPassword} = await req.json();
@@ -11,6 +11,7 @@ export async function POST(req){
     if(!cleanOld || !cleanName || !cleanPhone || !cleanEmail || !currentPassword){
       return Response.json({ok:false, error:"모든 필드 필요"}, {status:400});
     }
+    if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true});
     const sql = neon(process.env.DATABASE_URL);
     const found = await sql`SELECT id, password FROM users WHERE LOWER(email)=${cleanOld} LIMIT 1`;
@@ -20,6 +21,7 @@ export async function POST(req){
     }
     const id = found[0].id;
     const pw = (newPassword||"").trim();
+    if(pw){ const pwErr = validatePassword(pw); if(pwErr) return Response.json({ok:false, error:pwErr}, {status:400}); }
     const newHash = pw ? hashPassword(pw) : null;
     try{
       const rows = pw
@@ -35,6 +37,6 @@ export async function POST(req){
     return Response.json({ok:true, token: makeSessionToken(cleanEmail, newHash || found[0].password)});
   }catch(e){
     console.error(e);
-    return Response.json({ok:false,error:String(e)},{status:500});
+    return Response.json({ok:false,error:"서버 오류가 발생했습니다"},{status:500});
   }
 }

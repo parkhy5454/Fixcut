@@ -8,6 +8,8 @@ export async function ensureTables(sql){
   await sql`CREATE TABLE IF NOT EXISTS point_ledger (id SERIAL PRIMARY KEY, email TEXT NOT NULL, reason TEXT NOT NULL, ref_email TEXT, amount INT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW(), confirmed_at TIMESTAMPTZ, expires_at TIMESTAMPTZ)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ`;
 }
 
 function makeCode(email){

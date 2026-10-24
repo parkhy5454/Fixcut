@@ -8,6 +8,7 @@ export async function POST(req){
     const body = await req.json().catch(()=>({}));
     const currentPassword = body.currentPassword || "";
     if(!email || !currentPassword) return Response.json({ok:false, error:"이메일과 현재 비밀번호가 필요합니다"}, {status:400});
+    if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
     if(!process.env.DATABASE_URL) return Response.json({ok:true, mock:true});
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`SELECT id, password FROM users WHERE LOWER(email)=${email} LIMIT 1`;
@@ -21,6 +22,6 @@ export async function POST(req){
     return Response.json({ok:true});
   }catch(e){
     console.error(e);
-    return Response.json({ok:false, error:String(e)}, {status:500});
+    return Response.json({ok:false, error:"서버 오류가 발생했습니다"}, {status:500});
   }
 }

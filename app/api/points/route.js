@@ -7,6 +7,7 @@ export async function GET(req){
     const { searchParams } = new URL(req.url);
     const email = (searchParams.get("email")||"").trim().toLowerCase();
     if(!email) return Response.json({ok:false, error:"email 필요"},{status:400});
+    if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
     if(!process.env.DATABASE_URL) return Response.json({ok:true, code:null, balance:0, pending:0, items:[], referrals:[]});
     const sql = neon(process.env.DATABASE_URL);
     await ensureTables(sql);
@@ -24,6 +25,6 @@ export async function GET(req){
       FROM referrals r WHERE r.referrer_code=${code} ORDER BY r.id DESC LIMIT 100` : [];
     return Response.json({ok:true, code, balance: bal[0].balance, pending: pend[0].pending, items, referrals});
   }catch(e){
-    return Response.json({ok:false, error:String(e)},{status:500});
+    return Response.json({ok:false, error:"서버 오류가 발생했습니다"},{status:500});
   }
 }

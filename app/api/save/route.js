@@ -5,6 +5,7 @@ import { confirmRewards } from "../auth/referral.js";
 export async function POST(req){
   try{
     const body = await req.json();
+    if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true});
     const sql = neon(process.env.DATABASE_URL);
     if(!(await allowRequest(req, sql, "save", 30, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});
@@ -58,6 +59,6 @@ export async function POST(req){
     if(owner){ try{ await confirmRewards(sql, owner); }catch(e){ console.error("confirm rewards", e); } }
     return Response.json({ok:true});
   }catch(e){
-    return Response.json({ok:false,error:String(e)},{status:500});
+    return Response.json({ok:false,error:"서버 오류가 발생했습니다"},{status:500});
   }
 }
