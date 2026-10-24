@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless";
 import { hashPassword, makeSessionToken, validatePassword } from "../password.js";
 import { allowRequest } from "../ratelimit.js";
 import { ensureTables, ensureReferralCode, createReferral } from "../referral.js";
+import { encryptField, phoneHash } from "./crypto.js";
 export async function POST(req){
   try{
     const {name,phone,email,password,referralCode,agreeTerms} = await req.json();
@@ -24,12 +25,12 @@ export async function POST(req){
     try{
       // 같은 이메일이 있으면 덮어쓰지 않고 거절한다
       rows = await sql`
-        INSERT INTO users (name, phone, email, password, terms_version, terms_agreed_at) VALUES (${cleanName}, ${cleanPhone}, ${cleanEmail}, ${pwHash}, ${TERMS_VERSION}, NOW())
+        INSERT INTO users (name, phone_enc, phone_hash, email, password, terms_version, terms_agreed_at) VALUES (${cleanName}, ${encryptField(cleanPhone)}, ${phoneHash(cleanPhone)}, ${cleanEmail}, ${pwHash}, ${TERMS_VERSION}, NOW())
         ON CONFLICT (email) DO NOTHING
-        RETURNING id, name, phone, email
+        RETURNING id, name, email
       `;
     }catch(e){
-      if(String(e).includes("users_phone_key")) return Response.json({ok:false, error:"이미 등록된 핸드폰 번호입니다"}, {status:409});
+      if(String(e).includes("users_phone_hash_key") || String(e).includes("users_phone_key")) return Response.json({ok:false, error:"이미 등록된 핸드폰 번호입니다"}, {status:409});
       throw e;
     }
     if(rows.length === 0) return Response.json({ok:false, error:"이미 가입된 이메일입니다"}, {status:409});
@@ -48,7 +49,7 @@ export async function POST(req){
     const myCode = await ensureReferralCode(sql, user.id, cleanEmail);
     return Response.json({
       ok:true,
-      user:{name:user.name, phone:user.phone, email:user.email},
+      user:{name:user.name, phone:cleanPhone, email:user.email},
       token: makeSessionToken(cleanEmail, pwHash),
       referral_code: myCode,
       referred

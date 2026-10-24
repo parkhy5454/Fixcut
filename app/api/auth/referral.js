@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { migrateLegacyData } from "./crypto.js";
 
 export const REWARD = 10000;      // 적립 금액 (추천한 사람, 추천받은 사람 각각)
 export const EXPIRE_MONTHS = 12;  // 적립 포인트 유효기간
@@ -10,6 +11,7 @@ export async function ensureTables(sql){
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ`;
+  await migrateLegacyData(sql);
 }
 
 function makeCode(email){

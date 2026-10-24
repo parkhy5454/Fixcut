@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { checkSession } from "../auth/password.js";
+import { openSaving, ensureSavingColumns } from "../auth/crypto.js";
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
@@ -15,7 +16,9 @@ export async function GET(req){
     }
     let savings = [];
     try{
-      savings = await sql`SELECT id, name, total, details, inputs, created_at FROM savings WHERE LOWER(email)=${email} ORDER BY id DESC LIMIT 50`;
+      await ensureSavingColumns(sql);
+      const rows = await sql`SELECT id, name, total, details, details_enc, inputs, inputs_enc, created_at FROM savings WHERE LOWER(email)=${email} ORDER BY id DESC LIMIT 50`;
+      savings = rows.map(openSaving);
     }catch(e){
       // savings 테이블이나 email 컬럼이 아직 없으면 기록이 없는 것으로 본다
       console.error("my-diagnoses query", e);

@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import { checkSession } from "../auth/password.js";
 import { allowRequest } from "../auth/ratelimit.js";
 import { confirmRewards } from "../auth/referral.js";
+import { encryptField, encryptJson, ensureSavingColumns } from "../auth/crypto.js";
 export async function POST(req){
   try{
     const body = await req.json();
@@ -33,6 +34,7 @@ export async function POST(req){
       await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS loans JSONB`;
       await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS email TEXT`;
     }catch(e){}
+    await ensureSavingColumns(sql);
 
     // 토큰이 유효한 회원이면 회원 이메일과 함께 저장, 아니면 비회원 기록으로 저장
     let owner = null;
@@ -42,18 +44,19 @@ export async function POST(req){
       if(users.length > 0 && checkSession(req, email, users[0].password)) owner = email;
     }
 
-    await sql`INSERT INTO savings (name, phone, total, details, inputs, carrier, phone_fee, data_usage, ott, loans, email)
+    // 전화번호와 금액·항목 데이터는 암호화해서 저장한다 (평문 열은 비워 둔다)
+    await sql`INSERT INTO savings (name, phone_enc, total, details_enc, inputs_enc, carrier, phone_fee, data_usage, ott_enc, loans_enc, email)
       VALUES (
         ${body.name||""},
-        ${body.phone||""},
+        ${encryptField(body.phone||"")},
         ${body.total||0},
-        ${JSON.stringify(body.details||[])},
-        ${JSON.stringify(body.inputs||{})},
+        ${encryptJson(body.details||[])},
+        ${encryptJson(body.inputs||{})},
         ${body.inputs?.carrier||body.carrier||""},
         ${body.inputs?.phoneFee||body.phoneFee||""},
         ${body.inputs?.dataUsage||body.dataUsage||""},
-        ${JSON.stringify(body.inputs?.ott||body.ott||{})},
-        ${JSON.stringify(body.inputs?.loans||body.loans||[])},
+        ${encryptJson(body.inputs?.ott||body.ott||{})},
+        ${encryptJson(body.inputs?.loans||body.loans||[])},
         ${owner}
       )`;
     if(owner){ try{ await confirmRewards(sql, owner); }catch(e){ console.error("confirm rewards", e); } }
