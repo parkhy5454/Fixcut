@@ -19,6 +19,7 @@ const num = v => { const n = Number(v); return n > 0 ? n : null; };
 async function fetchAll(svc, auth, groups = [TOP_GROUP]){
   const base = [];
   const option = [];
+  const meta = { resultKeys: null, firstKeys: null };
   for(const group of groups){
     let page = 1;
     let max = 1;
@@ -31,6 +32,7 @@ async function fetchAll(svc, auth, groups = [TOP_GROUP]){
       if(!res.ok) throw new Error("finlife http " + res.status);
       const json = await res.json();
       const r = json.result || {};
+      if(meta.resultKeys === null){ meta.resultKeys = Object.keys(r); meta.firstKeys = Object.keys(json); }
       if(r.err_cd && String(r.err_cd) !== "000") throw new Error("finlife err " + r.err_cd);
       base.push(...(r.baseList || []));
       option.push(...(r.optionList || []));
@@ -44,7 +46,7 @@ async function fetchAll(svc, auth, groups = [TOP_GROUP]){
       page++;
     }while(page <= max && page <= 30);
   }
-  return { base, option };
+  return { base, option, meta };
 }
 
 function nameMap(base){
@@ -218,7 +220,7 @@ export async function GET(req){
     let entry = cache.get(type);
     if(!entry || Date.now() - entry.at > TTL_MS){
       const groups = type === "pension" ? ["020000", "050000", "060000"] : [TOP_GROUP];
-      const { base, option } = await fetchAll(svc, auth, groups);
+      const { base, option, meta } = await fetchAll(svc, auth, groups);
       const asOf = base[0]?.dcls_month || null;
       const summary = (type === "deposit" || type === "savings")
         ? summarizeSavings(base, option, asOf)
@@ -227,10 +229,10 @@ export async function GET(req){
           : type === "jeonse" ? summarizeJeonse(base, option, asOf) : type === "pension" ? summarizePension(base, option, asOf) : summarizeLoan(base, option, asOf);
       // 요약이 실패하면 실제 응답의 필드 이름만 남겨 두어 원인을 확인할 수 있게 한다 (금리 값은 제외)
       const fields = option[0] ? Object.keys(option[0]) : [];
-      entry = { at: Date.now(), summary, fields, count: option.length };
+      entry = { at: Date.now(), summary, fields, count: option.length, baseCount: base.length, baseKeys: Object.keys(base[0] || {}), meta };
       cache.set(type, entry);
     }
-    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다", fields: entry.fields, optionCount: entry.count }, { status:502 });
+    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다", fields: entry.fields, optionCount: entry.count, baseCount: entry.baseCount, baseKeys: entry.baseKeys, meta: entry.meta }, { status:502 });
     return Response.json({ ok:true, type, summary: entry.summary });
   }catch(e){
     console.error("rates", e.message);
