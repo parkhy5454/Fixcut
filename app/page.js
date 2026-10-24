@@ -323,6 +323,9 @@ export default function Page(){
     if(isNaN(d)) return str.slice(0,16);
     return new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
   };
+  const CAT_ORDER=["통신","OTT","담보","신용","전세","대출","기타"];
+  const catOf=d=>d.cat || (String(d.title).includes("알뜰폰")?"통신":(String(d.title).includes("해지")?"OTT":(String(d.title).includes("대환")?"대출":"기타")));
+  const sortDetails=arr=>[...arr].sort((a,b)=>CAT_ORDER.indexOf(catOf(a))-CAT_ORDER.indexOf(catOf(b)));
   const creditBand=s=>{ const n=Number(s); if(!(n>=0)) return null; if(n>900) return "1"; if(n>=801) return "4"; if(n>=701) return "5"; if(n>=601) return "6"; if(n>=501) return "10"; if(n>=401) return "11"; if(n>=301) return "12"; return "13"; };
   const benchTextOf=(m,c,j)=>"주택담보 "+(m? m.benchmarkRate+"%" : "3.2%(고정값)")+", 신용 "+(c&&c.byCb? "신용점수·CB 구간별 금감원 공시 값" : "3.2%(고정값)")+", 전세 "+(j? j.benchmarkRate+"%" : "3.2%(고정값)")+" (상품별 평균금리 최저값)";
   const calc=(bench)=>{
@@ -335,12 +338,12 @@ export default function Page(){
     if(form.carrier!=="알뜰폰" && phoneFeeNum>30000){
       const tar=dataUsageNum<=15?19900:29700;
       const sv=phoneFeeNum-tar;
-      if(sv>0){t+=sv; d.push({title:`${form.carrier} ${formatComma(phoneFeeNum)}원 → 알뜰폰 ${formatComma(tar)}원`,save:sv, desc:`데이터 ${dataUsageNum}GB 기준`});}
+      if(sv>0){t+=sv; d.push({title:`${form.carrier} ${formatComma(phoneFeeNum)}원 → 알뜰폰 ${formatComma(tar)}원`,save:sv, desc:`데이터 ${dataUsageNum}GB 기준`, cat:"통신"});}
     }
     const fees={netflix:17000,youtube:14900,disney:9900,wavve:13900,tving:13900};
     const feeNames={netflix:"넷플릭스",youtube:"유튜브 프리미엄",disney:"디즈니+",wavve:"웨이브",tving:"티빙"};
     Object.keys(form.ott).forEach(k=>{
-      if(form.ott[k]){ t+=fees[k]; d.push({title:`${feeNames[k]} 공유/해지`,save:fees[k], desc:`${formatComma(fees[k])}원 절약`}); }
+      if(form.ott[k]){ t+=fees[k]; d.push({title:`${feeNames[k]} 공유/해지`,save:fees[k], desc:`${formatComma(fees[k])}원 절약`, cat:"OTT"}); }
     });
     form.loans.forEach((loan, idx)=>{
       const amt = parseNumber(loan.amount);
@@ -348,7 +351,7 @@ export default function Page(){
       const B = loan.kind==="mortgage" ? pick("mortgage") : loan.kind==="credit" ? ((bm.creditByCb?.[loan.cb] || bm.creditByCb?.ALL)?.[creditBand(loan.score)]?.rate ?? 3.2) : loan.kind==="jeonse" ? pick("jeonse") : 3.2;
       if(amt>=1000000 && rate>B){
         const ms=Math.round(amt*(rate-B)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, cat:({mortgage:"담보",credit:"신용",jeonse:"전세"})[loan.kind]||"대출", desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
       }
     });
     return {total:t,details:d};
@@ -489,7 +492,7 @@ export default function Page(){
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-4 text-[11px] text-black/40 leading-relaxed">※ 추정치입니다. 알뜰폰 요금은 데이터 15GB 이하 기준 19,900원(초과 29,700원), 대환 기준금리는 {result.benchText ?? "3.2%(고정값)"}로 가정하고, 대출 원금 전체를 금리 차이만큼 낮춘다고 계산했습니다. {result.asOf ? "금감원 공시 기준 "+result.asOf+", " : ""}실제 조건과 결과는 다를 수 있습니다.</div><div className="mt-2 text-[11px] text-black/40 leading-relaxed">대환 기준금리는 금융감독원 '금융상품 한눈에'의 주택담보·신용·전세자금대출 상품별 평균금리 중 최저값이며, 우대 조건이 적용된 상품을 포함합니다. 실제 적용 금리는 개인의 신용도, 담보, 조건에 따라 달라질 수 있습니다. 신용대출 금리는 CB사(NICE·KCB) 신용점수 구간별로 공시된 직전월 신규 취급 대출의 가중평균금리입니다.</div>
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{sortDetails(result.details).map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-start gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black text-white">{catOf(d)}</span><span className="font-bold text-[14px]">{d.title}</span></div><div className="text-[11px] text-black/40 mt-1">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px] whitespace-nowrap">−{formatComma(d.save)}원</div></div>)}{result.details.length>0 && <div className="flex justify-between items-center border-t pt-4 mt-2"><span className="font-black text-[14px]">월 합계</span><span className="font-black text-violet-600 text-[16px]">−{formatComma(result.total)}원</span></div>}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-4 text-[11px] text-black/40 leading-relaxed">※ 추정치입니다. 알뜰폰 요금은 데이터 15GB 이하 기준 19,900원(초과 29,700원), 대환 기준금리는 {result.benchText ?? "3.2%(고정값)"}로 가정하고, 대출 원금 전체를 금리 차이만큼 낮춘다고 계산했습니다. {result.asOf ? "금감원 공시 기준 "+result.asOf+", " : ""}실제 조건과 결과는 다를 수 있습니다.</div><div className="mt-2 text-[11px] text-black/40 leading-relaxed">대환 기준금리는 금융감독원 '금융상품 한눈에'의 주택담보·신용·전세자금대출 상품별 평균금리 중 최저값이며, 우대 조건이 적용된 상품을 포함합니다. 실제 적용 금리는 개인의 신용도, 담보, 조건에 따라 달라질 수 있습니다. 신용대출 금리는 CB사(NICE·KCB) 신용점수 구간별로 공시된 직전월 신규 취급 대출의 가중평균금리입니다.</div>
                 <div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
         {tab==="records" && <div className="mt-6">
@@ -502,15 +505,7 @@ export default function Page(){
                 : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
                 : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
                     <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{fmtKst(r.created_at)}</span></div>
-                    {(() => {
-                      const items = r.details || [];
-                      const carrier = items.filter(d=>d.title.includes("알뜰폰"));
-                      const others = items.filter(d=>!d.title.includes("알뜰폰"));
-                      return <div className="text-[12px] text-black/50 mt-1 space-y-1">
-                        {carrier.length>0 && <div>{carrier.map(d=>d.title).join(" / ")}</div>}
-                        {others.length>0 && <div>{others.map(d=>d.title).join(" / ")}</div>}
-                      </div>;
-                    })()}
+                    {sortDetails(r.details || []).length>0 && <div className="mt-2 space-y-1.5">{sortDetails(r.details || []).map((d,i)=><div key={i} className="flex justify-between items-center gap-2 text-[12px]"><span className="text-black/70 min-w-0"><span className="inline-block mr-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/5 text-black/60">{catOf(d)}</span>{d.title}</span><span className="font-bold text-violet-600 whitespace-nowrap">−{formatComma(d.save)}원</span></div>)}</div>}
                   </div>)}</div>}
             </div>
 
