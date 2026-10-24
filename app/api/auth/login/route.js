@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 import { hashPassword, verifyPassword, isLegacyPlain, makeSessionToken } from "../password.js";
 import { allowRequest } from "../ratelimit.js";
 import { ensureTables, ensureReferralCode } from "../referral.js";
-import { openPhone } from "./crypto.js";
+import { openPhone } from "../crypto.js";
 export async function POST(req){
   try{
     const {email,password} = await req.json();
