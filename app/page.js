@@ -2,6 +2,9 @@
 "use client";
 import { useState, useEffect } from "react";
 
+// 고객 문의(관리자 전화) 번호. 정해지면 여기에 입력한다. 비워 두면 번호는 표시되지 않는다.
+const SUPPORT_PHONE = "";
+
 const formatPhone = (value) => {
   const numbers = value.replace(/[^0-9]/g, "");
   if (numbers.length <= 3) return numbers;
@@ -68,6 +71,8 @@ export default function Page(){
   const [pensionInfo,setPensionInfo]=useState(null);
   const [showRef,setShowRef]=useState(false);
   const [showLoanRef,setShowLoanRef]=useState(false);
+  const [forcePw,setForcePw]=useState(null);
+  const [rp,setRp]=useState({name:"",phone:"",result:null});
   const [savingInfo,setSavingInfo]=useState({deposit:null,savings:null});
   const [verifyCode,setVerifyCode]=useState("");
   const [resetStep,setResetStep]=useState(null);
@@ -308,6 +313,7 @@ export default function Page(){
     setAuth(user);
     setEditForm({name:user.name, phone:user.phone, email:user.email, password:"", newPassword:""});
     setShowAuth(null);
+    if(data.mustChange) setForcePw({tempPw:"", newPw:"", newPw2:""});
   };
 
   const saveDiagnosis = async (r) => {
@@ -345,6 +351,30 @@ export default function Page(){
       {isCustom && <input value={item.institution||""} onChange={e=>patch({institution:e.target.value})} placeholder="기관명 직접 입력" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>}
     </>;
   };
+  const submitForcePw = async () => {
+    if(!forcePw.tempPw || !forcePw.newPw){ alert("임시 비밀번호와 새 비밀번호를 입력해 주세요"); return; }
+    if(forcePw.newPw !== forcePw.newPw2){ alert("새 비밀번호가 서로 다릅니다"); return; }
+    try{
+      const res = await fetch("/api/auth/update", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({oldEmail:auth.email, currentPassword:forcePw.tempPw, name:auth.name, phone:auth.phone, email:auth.email, newPassword:forcePw.newPw})});
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok){ alert(data.error || "변경하지 못했습니다. 다시 시도해 주세요"); return; }
+      if(data.token) localStorage.setItem("fixcut_token", data.token);
+      setForcePw(null);
+      alert("새 비밀번호로 변경되었습니다");
+    }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); }
+  };
+
+  const resetMemberPw = async () => {
+    if(!rp.name.trim() || !rp.phone.trim()){ alert("회원 이름과 휴대폰 번호를 입력해 주세요"); return; }
+    if(!confirm("회원 본인 확인(이름·휴대폰)이 끝났습니까? 임시 비밀번호를 발급합니다.")) return;
+    try{
+      const res = await fetch("/api/admin/users/reset-password", {method:"POST", headers:{...authHeaders(), "Content-Type":"application/json"}, body:JSON.stringify({name:rp.name.trim(), phone:rp.phone.trim()})});
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok){ alert(data.error || "발급하지 못했습니다"); return; }
+      setRp({name:"", phone:"", result:{email:data.email, tempPassword:data.tempPassword}});
+    }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); }
+  };
+
   const CAT_ORDER=["통신","OTT","담보","신용","전세","대출","예금","적금","연금","기타"];
   const catOf=d=>d.cat || (String(d.title).includes("알뜰폰")?"통신":(String(d.title).includes("해지")?"OTT":(String(d.title).includes("대환")?"대출":"기타")));
   const sortDetails=arr=>[...arr].sort((a,b)=>CAT_ORDER.indexOf(catOf(a))-CAT_ORDER.indexOf(catOf(b)));
@@ -658,6 +688,7 @@ export default function Page(){
                 <div className="font-black text-[18px]">{auth.name}님 {isAdmin && <span className="text-red-500 text-[12px]">[관리자]</span>}</div>
                 <div className="text-[13px] text-black/50 mt-1">{auth.email}</div>
                 <div className="text-[12px] text-black/40">{auth.phone}</div>
+                {isAdmin && <button onClick={()=>{setTab("admin"); loadAdmin();}} className="mt-4 w-full border-2 border-red-200 rounded-2xl py-3.5 font-bold text-[13px] text-red-500 flex justify-between items-center px-4 hover:bg-red-50"><span>관리자 메뉴</span><span>▸</span></button>}
               </div>
               <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
             </div>
@@ -735,10 +766,31 @@ export default function Page(){
 
         {tab==="admin" && <div className="mt-6">
           {!isAdmin ? <div className="text-center py-20"><div className="font-black">관리자만 접근 가능</div></div> :
-          <div><h2 className="text-[26px] font-black">관리자 대시보드</h2><div className="mt-4 grid grid-cols-3 gap-2"><div className="bg-black text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">총 회원</div><div className="text-[22px] font-black">{adminData.users.length}명</div></div><div className="bg-violet-600 text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">절약 진단</div><div className="text-[22px] font-black">{adminData.savings.length}건</div></div><div className="bg-amber-400 text-black rounded-2xl p-4"><div className="text-[11px]">추천</div><div className="text-[22px] font-black">{adminData.referrals?.length||0}건</div></div></div><div className="mt-6"><div className="flex justify-between"><h3 className="font-black">회원 목록</h3><button onClick={loadAdmin} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">새로고침</button></div><div className="mt-3 space-y-2">{adminData.users.map(u=><div key={u.id} className="border rounded-2xl p-4"><div className="flex justify-between items-center"><span className="font-bold">{u.name} {u.suspended && <span className="text-[11px] text-red-500">[정지]</span>}</span><span className="text-[11px] text-black/40">{u.created_at?.slice(0,10)}</span></div><div className="text-[12px] text-black/50 mt-1">{u.phone} | {u.email}</div><div className="mt-2 flex justify-end"><button onClick={async()=>{ if(!confirm((u.suspended?"정지를 해제":"정지")+"할까요?\n"+u.email)) return; try{ const r=await fetch("/api/admin/users/suspend",{method:"POST",headers:{"Content-Type":"application/json", ...authHeaders()},body:JSON.stringify({id:u.id, suspend:!u.suspended})}); const d=await r.json().catch(()=>({})); if(r.ok) loadAdmin(); else alert(d.error||"처리에 실패했습니다"); }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); } }} className={"text-[11px] px-3 py-1 rounded-full font-bold "+(u.suspended?"bg-black/5":"bg-red-50 text-red-600")}>{u.suspended?"정지 해제":"정지"}</button></div></div>)}</div></div></div>}
+          <div><button onClick={()=>setTab("my")} className="text-[12px] font-bold text-black/50 mb-2">← 설정으로</button>
+          <h2 className="text-[26px] font-black">관리자 대시보드</h2>
+          <div className="mt-6 border rounded-2xl p-4 space-y-2">
+            <div className="font-black text-[14px]">비밀번호 초기화 (전화 문의용)</div>
+            <div className="text-[12px] text-black/50">회원의 이름과 가입 휴대폰 번호가 맞는지 확인한 뒤 임시 비밀번호를 발급합니다. 회원은 다음 로그인 때 새 비밀번호를 설정해야 합니다. 모든 발급은 기록에 남습니다.</div>
+            <input value={rp.name} onChange={e=>setRp({...rp, name:e.target.value})} placeholder="회원 이름" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+            <input value={rp.phone} onChange={e=>setRp({...rp, phone:e.target.value})} inputMode="tel" placeholder="가입 휴대폰 번호" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+            <button onClick={resetMemberPw} className="w-full bg-black text-white rounded-full py-3.5 font-bold">임시 비밀번호 발급</button>
+            {rp.result && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[13px]">
+              <div>{rp.result.email} · 임시 비밀번호 <b className="font-black">{rp.result.tempPassword}</b></div>
+              <div className="text-[11px] text-black/50 mt-1">회원에게 알려 준 뒤 이 화면을 닫으세요. 다시 볼 수 없습니다.</div>
+              <button onClick={()=>setRp({...rp, result:null})} className="mt-2 text-[11px] underline text-black/60">확인 후 지우기</button>
+            </div>}
+          </div><div className="mt-4 grid grid-cols-3 gap-2"><div className="bg-black text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">총 회원</div><div className="text-[22px] font-black">{adminData.users.length}명</div></div><div className="bg-violet-600 text-white rounded-2xl p-4"><div className="text-[11px] text-white/60">절약 진단</div><div className="text-[22px] font-black">{adminData.savings.length}건</div></div><div className="bg-amber-400 text-black rounded-2xl p-4"><div className="text-[11px]">추천</div><div className="text-[22px] font-black">{adminData.referrals?.length||0}건</div></div></div><div className="mt-6"><div className="flex justify-between"><h3 className="font-black">회원 목록</h3><button onClick={loadAdmin} className="text-[11px] bg-black/5 px-3 py-1 rounded-full">새로고침</button></div><div className="mt-3 space-y-2">{adminData.users.map(u=><div key={u.id} className="border rounded-2xl p-4"><div className="flex justify-between items-center"><span className="font-bold">{u.name} {u.suspended && <span className="text-[11px] text-red-500">[정지]</span>}</span><span className="text-[11px] text-black/40">{u.created_at?.slice(0,10)}</span></div><div className="text-[12px] text-black/50 mt-1">{u.phone} | {u.email}</div><div className="mt-2 flex justify-end"><button onClick={async()=>{ if(!confirm((u.suspended?"정지를 해제":"정지")+"할까요?\n"+u.email)) return; try{ const r=await fetch("/api/admin/users/suspend",{method:"POST",headers:{"Content-Type":"application/json", ...authHeaders()},body:JSON.stringify({id:u.id, suspend:!u.suspended})}); const d=await r.json().catch(()=>({})); if(r.ok) loadAdmin(); else alert(d.error||"처리에 실패했습니다"); }catch(e){ alert("네트워크 오류입니다. 다시 시도해 주세요"); } }} className={"text-[11px] px-3 py-1 rounded-full font-bold "+(u.suspended?"bg-black/5":"bg-red-50 text-red-600")}>{u.suspended?"정지 해제":"정지"}</button></div></div>)}</div></div></div>}
         </div>}
       </div>
 
+      {forcePw && <div className="fixed inset-0 bg-black/50 z-[120] flex items-end justify-center p-4"><div className="bg-white rounded-[28px] w-full max-w-[400px] p-7 space-y-3">
+        <h3 className="text-[20px] font-black">새 비밀번호를 설정해 주세요</h3>
+        <p className="text-[12px] text-black/50">임시 비밀번호로 로그인하셨습니다. 새 비밀번호를 설정해야 계속 이용할 수 있습니다.</p>
+        <input value={forcePw.tempPw} onChange={e=>setForcePw({...forcePw, tempPw:e.target.value})} type="password" placeholder="관리자가 알려준 임시 비밀번호" className="w-full bg-black/5 rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+        <input value={forcePw.newPw} onChange={e=>setForcePw({...forcePw, newPw:e.target.value})} type="password" placeholder="새 비밀번호 (8자 이상, 영문+숫자)" className="w-full bg-black/5 rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+        <input value={forcePw.newPw2} onChange={e=>setForcePw({...forcePw, newPw2:e.target.value})} type="password" placeholder="새 비밀번호 확인" className="w-full bg-black/5 rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+        <button onClick={submitForcePw} className="w-full bg-black text-white rounded-full py-4 font-bold">비밀번호 변경</button>
+      </div></div>}
       {showAuth && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-end justify-center p-4"><div className="bg-white rounded-[28px] w-full max-w-[400px] p-7 max-h-[90vh] overflow-auto"><div className="flex justify-between"><h3 className="text-[20px] font-black">{showAuth==="signup"?"회원가입":"로그인"}</h3><button onClick={()=>setShowAuth(null)} className="w-8 h-8 bg-black/5 rounded-full">X</button></div>
         <div className="mt-6 space-y-3">
           {showAuth==="signup" && <><input value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="이름" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/><div><div className="text-[11px] font-bold text-black/50 mb-1">핸드폰 번호 (숫자만 입력)</div><input value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:formatPhone(e.target.value)})} inputMode="numeric" placeholder="010-1234-5678" className="w-full bg-gray-50 border rounded-2xl px-5 py-4"/></div></>}
@@ -747,7 +799,7 @@ export default function Page(){
           {showAuth==="signup" && <div><div className="text-[11px] font-bold text-black/50 mb-1">친구 추천 코드 (선택)</div><input value={authForm.referralCode} onChange={e=>setAuthForm({...authForm,referralCode:e.target.value})} placeholder="추천 코드 있으면 입력" className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-[14px]"/><div className="text-[10px] text-amber-600 mt-1">추천 코드 입력하면 1만원 혜택!</div></div>}
           {showAuth==="signup" && <label className="flex items-start gap-2 text-[12px] text-black/60"><input type="checkbox" checked={authForm.agree} onChange={e=>setAuthForm({...authForm,agree:e.target.checked})} className="mt-0.5"/><span>[필수] 이용약관 및 개인정보 처리방침에 동의합니다</span></label>}
           <button onClick={submitAuth} className="w-full bg-black text-white rounded-full py-4 font-bold">{showAuth==="signup"?"가입하기 (1만원 혜택)":"로그인"}</button>
-          {showAuth==="login" && <button onClick={()=>{setResetStep("request"); setResetEmail(authForm.email); setResetCode(""); setResetPw("");}} className="w-full text-[12px] text-black/50 underline">비밀번호를 잊으셨나요?</button>}
+          {showAuth==="login" && <button onClick={()=>{setResetStep("request"); setResetEmail(authForm.email); setResetCode(""); setResetPw("");}} className="w-full text-[12px] text-black/50 underline">비밀번호를 잊으셨나요?</button>}{showAuth==="login" && <p className="text-center text-[11px] text-black/40">메일을 받을 수 없으면 관리자에게 전화해 임시 비밀번호를 받으세요{SUPPORT_PHONE ? " ("+SUPPORT_PHONE+")" : ""}</p>}
         </div>
       </div></div>}
       {resetStep && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-end justify-center p-4"><div className="bg-white rounded-[28px] w-full max-w-[400px] p-7 max-h-[90vh] overflow-auto">
@@ -791,7 +843,7 @@ export default function Page(){
           </button>
         ); })}
       </div>
-      {isAdmin && <div className="border-t mt-1 pt-1 flex justify-center"><button onClick={()=>{setTab("admin"); loadAdmin();}} className={"flex flex-col items-center py-1 gap-0.5 "+(tab==="admin"?"text-red-500":"text-red-500/50")}><div className={"w-5 h-5 flex items-center justify-center rounded-md "+(tab==="admin"?"bg-red-500 text-white":"bg-red-50")}><span className="text-[10px]">⚑</span></div><span className="text-[9px] font-bold">관리</span></button></div>}
+      
       </div></div>
     </main>
   );
