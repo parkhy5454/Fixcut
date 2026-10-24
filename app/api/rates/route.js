@@ -7,6 +7,7 @@ const SERVICES = {
   jeonse: "rentHouseLoanProductsSearch",   // 전세자금대출
   deposit: "depositProductsSearch",        // 정기예금
   savings: "savingProductsSearch",         // 적금
+  pension: "annuitySavingProductsSearch", // 연금저축 (응답 필드 확인용, 아직 화면에 쓰지 않음)
 };
 const BASE = "http://finlife.fss.or.kr/finlifeapi/";
 const TOP_GROUP = "020000"; // 은행
