@@ -1,19 +1,26 @@
-// 금융상품 한눈에(금감원) 주택담보대출 금리 요약
-// GET /api/rates?type=mortgage
+// 금융상품 한눈에(금감원) 금리 요약
+// GET /api/rates?type=mortgage|credit|deposit|savings
 // 인증키는 환경 변수 FINLIFE_AUTH_KEY 에서만 읽고, 응답에는 포함하지 않는다.
-const SERVICE = "mortgageLoanProductsSearch";
+const SERVICES = {
+  mortgage: "mortgageLoanProductsSearch",  // 주택담보대출
+  credit: "creditLoanProductsSearch",      // 개인신용대출
+  deposit: "depositProductsSearch",        // 정기예금
+  savings: "savingProductsSearch",         // 적금
+};
 const BASE = "http://finlife.fss.or.kr/finlifeapi/";
 const TOP_GROUP = "020000"; // 은행
 const TTL_MS = 6 * 60 * 60 * 1000;
-let cached = null;
+const cache = new Map();
 
-async function fetchAll(auth){
+const num = v => { const n = Number(v); return n > 0 ? n : null; };
+
+async function fetchAll(svc, auth){
   const base = [];
   const option = [];
   let page = 1;
   let max = 1;
   do{
-    const url = new URL(BASE + SERVICE + ".json");
+    const url = new URL(BASE + svc + ".json");
     url.searchParams.set("auth", auth);
     url.searchParams.set("topFinGrpNo", TOP_GROUP);
     url.searchParams.set("pageNo", String(page));
@@ -30,28 +37,32 @@ async function fetchAll(auth){
   return { base, option };
 }
 
-// 상품별 평균 금리 중 가장 낮은 값을 대환 기준으로 쓴다
-function summarize(base, option, asOf){
-  const names = new Map(base.map(b => [b.fin_co_no + "|" + b.fin_prdt_cd, b]));
+function nameMap(base){
+  return new Map(base.map(b => [b.fin_co_no + "|" + b.fin_prdt_cd, b]));
+}
+
+// 대출: 상품별 평균 금리 중 최저값 (주택담보·신용 공통)
+function summarizeLoan(base, option, asOf){
+  const names = nameMap(base);
   let best = null;
   let rangeMin = null;
   let rangeMax = null;
   for(const o of option){
-    const avg = Number(o.lend_rate_avg);
-    const mn = Number(o.lend_rate_min);
-    const mx = Number(o.lend_rate_max);
-    if(!(avg > 0)) continue;
-    if(!best || avg < best.avg){
+    const avg = num(o.lend_rate_avg) ?? num(o.lend_rate_min);
+    if(!avg) continue;
+    if(!best || avg < best.rate){
       const b = names.get(o.fin_co_no + "|" + o.fin_prdt_cd) || {};
-      best = { avg, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", type: o.lend_rate_type_nm || "" };
+      best = { rate: avg, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", type: o.lend_rate_type_nm || "" };
     }
-    if(mn > 0 && (rangeMin === null || mn < rangeMin)) rangeMin = mn;
-    if(mx > 0 && (rangeMax === null || mx > rangeMax)) rangeMax = mx;
+    const mn = num(o.lend_rate_min);
+    const mx = num(o.lend_rate_max);
+    if(mn && (rangeMin === null || mn < rangeMin)) rangeMin = mn;
+    if(mx && (rangeMax === null || mx > rangeMax)) rangeMax = mx;
   }
   if(!best) return null;
   return {
     asOf,
-    benchmarkRate: best.avg,
+    benchmarkRate: best.rate,
     benchmarkProduct: (best.company + " " + best.product).trim(),
     benchmarkType: best.type,
     rangeMin,
@@ -60,22 +71,49 @@ function summarize(base, option, asOf){
   };
 }
 
+// 예금·적금: 상품별 최고 우대금리(intr_rate2)를 기준으로 상위 3개 정렬
+function summarizeSavings(base, option, asOf){
+  const names = nameMap(base);
+  const rows = [];
+  for(const o of option){
+    const base1 = num(o.intr_rate);
+    const top = num(o.intr_rate2) ?? base1;
+    if(!top) continue;
+    const b = names.get(o.fin_co_no + "|" + o.fin_prdt_cd) || {};
+    rows.push({
+      company: b.kor_co_nm || "",
+      product: b.fin_prdt_nm || "",
+      term: o.save_trm ? o.save_trm + "개월" : "",
+      baseRate: base1,
+      topRate: top,
+    });
+  }
+  rows.sort((a, b) => b.topRate - a.topRate);
+  if(rows.length === 0) return null;
+  return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3) };
+}
+
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
-    if((searchParams.get("type") || "") !== "mortgage"){
-      return Response.json({ ok:false, error:"지원하지 않는 금리 종류입니다" }, { status:400 });
-    }
+    const type = searchParams.get("type") || "";
+    const svc = SERVICES[type];
+    if(!svc) return Response.json({ ok:false, error:"지원하지 않는 금리 종류입니다" }, { status:400 });
     const auth = process.env.FINLIFE_AUTH_KEY;
     if(!auth) return Response.json({ ok:false, error:"금리 데이터 설정이 없습니다" }, { status:503 });
 
-    if(!cached || Date.now() - cached.at > TTL_MS){
-      const { base, option } = await fetchAll(auth);
+    let entry = cache.get(type);
+    if(!entry || Date.now() - entry.at > TTL_MS){
+      const { base, option } = await fetchAll(svc, auth);
       const asOf = base[0]?.dcls_month || null;
-      cached = { at: Date.now(), summary: summarize(base, option, asOf) };
+      const summary = (type === "deposit" || type === "savings")
+        ? summarizeSavings(base, option, asOf)
+        : summarizeLoan(base, option, asOf);
+      entry = { at: Date.now(), summary };
+      cache.set(type, entry);
     }
-    if(!cached.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다" }, { status:502 });
-    return Response.json({ ok:true, summary: cached.summary });
+    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다" }, { status:502 });
+    return Response.json({ ok:true, type, summary: entry.summary });
   }catch(e){
     console.error("rates", e.message);
     return Response.json({ ok:false, error:"금리 데이터를 가져오지 못했습니다" }, { status:502 });
