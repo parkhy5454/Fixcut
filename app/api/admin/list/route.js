@@ -1,6 +1,6 @@
 import { verifyAdmin } from "../../auth/admin.js";
 import { neon } from "@neondatabase/serverless";
-import { openPhone, openSaving, ensureUserColumns, ensureSavingColumns } from "../../auth/crypto.js";
+import { openPhone, openSaving, maskPhone, ensureUserColumns, ensureSavingColumns } from "../../auth/crypto.js";
 export async function GET(req){
   try{
     const v = await verifyAdmin(req);
@@ -8,12 +8,12 @@ export async function GET(req){
     const sql = neon(process.env.DATABASE_URL);
     await ensureUserColumns(sql);
     const userRows = await sql`SELECT id, name, phone, phone_enc, email, created_at FROM users ORDER BY id DESC LIMIT 100`;
-    const users = userRows.map(r => ({id:r.id, name:r.name, phone:openPhone(r), email:r.email, created_at:r.created_at}));
+    const users = userRows.map(r => ({id:r.id, name:r.name, phone:maskPhone(openPhone(r)), email:r.email, created_at:r.created_at}));
     let savings=[];
     try{
       await ensureSavingColumns(sql);
       const rows = await sql`SELECT id, name, phone, phone_enc, total, details, details_enc, inputs, inputs_enc, carrier, phone_fee, data_usage, ott, ott_enc, loans, loans_enc, created_at FROM savings ORDER BY id DESC LIMIT 100`;
-      savings = rows.map(openSaving);
+      savings = rows.map(r => ({...openSaving(r), phone: maskPhone(openSaving(r).phone)}));
     }catch(e){
       console.error("admin savings", e);
     }

@@ -9,7 +9,17 @@ export async function POST(req){
     if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true});
     const sql = neon(process.env.DATABASE_URL);
-    if(!(await allowRequest(req, sql, "save", 30, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});
+    // 토큰이 유효한 회원이면 회원 이메일과 함께 저장, 아니면 비회원 기록으로 저장
+    let owner = null;
+    const email = (body.email||"").trim().toLowerCase();
+    if(email){
+      const users = await sql`SELECT password FROM users WHERE LOWER(email)=${email} LIMIT 1`;
+      if(users.length > 0 && checkSession(req, email, users[0].password)) owner = email;
+    }
+
+    // 비회원은 IP당 10분에 10회, 회원은 30회까지만 저장 가능 (테이블 생성 전에 막는다)
+    const lim = owner ? 30 : 10;
+    if(!(await allowRequest(req, sql, owner ? "save_member" : "save_anon", lim, 600))) return Response.json({ok:false,error:"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"},{status:429});
     await sql`CREATE TABLE IF NOT EXISTS savings (
       id SERIAL PRIMARY KEY,
       name TEXT,
@@ -35,14 +45,6 @@ export async function POST(req){
       await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS email TEXT`;
     }catch(e){}
     await ensureSavingColumns(sql);
-
-    // 토큰이 유효한 회원이면 회원 이메일과 함께 저장, 아니면 비회원 기록으로 저장
-    let owner = null;
-    const email = (body.email||"").trim().toLowerCase();
-    if(email){
-      const users = await sql`SELECT password FROM users WHERE LOWER(email)=${email} LIMIT 1`;
-      if(users.length > 0 && checkSession(req, email, users[0].password)) owner = email;
-    }
 
     // 전화번호와 금액·항목 데이터는 암호화해서 저장한다 (평문 열은 비워 둔다)
     await sql`INSERT INTO savings (name, phone_enc, total, details_enc, inputs_enc, carrier, phone_fee, data_usage, ott_enc, loans_enc, email)

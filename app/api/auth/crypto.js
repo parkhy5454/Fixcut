@@ -113,3 +113,11 @@ export async function migrateLegacyData(sql){
     console.error("saving migrate", String(e));
   }
 }
+
+// 관리자 화면용 전화번호 마스킹: 010-****-5678
+export function maskPhone(phone){
+  if(!phone) return phone;
+  const d = String(phone).replace(/\D/g, "");
+  if(d.length < 8) return "***";
+  return d.slice(0, 3) + "-****-" + d.slice(-4);
+}

@@ -30,10 +30,10 @@ export async function POST(req){
         RETURNING id, name, email
       `;
     }catch(e){
-      if(String(e).includes("users_phone_hash_key") || String(e).includes("users_phone_key")) return Response.json({ok:false, error:"이미 등록된 핸드폰 번호입니다"}, {status:409});
+      if(String(e).includes("users_phone_hash_key") || String(e).includes("users_phone_key")) return Response.json({ok:false, error:"입력하신 정보로 가입할 수 없습니다. 이미 가입된 정보가 있는지 확인해 주세요"}, {status:409});
       throw e;
     }
-    if(rows.length === 0) return Response.json({ok:false, error:"이미 가입된 이메일입니다"}, {status:409});
+    if(rows.length === 0) return Response.json({ok:false, error:"입력하신 정보로 가입할 수 없습니다. 이미 가입된 정보가 있는지 확인해 주세요"}, {status:409});
     const user = rows[0];
 
     // 추천 코드로 가입한 경우 추천 관계와 대기 포인트를 서버에서 만든다
