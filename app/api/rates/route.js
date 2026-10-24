@@ -4,6 +4,7 @@
 const SERVICES = {
   mortgage: "mortgageLoanProductsSearch",  // 주택담보대출
   credit: "creditLoanProductsSearch",      // 개인신용대출
+  jeonse: "rentHouseLoanProductsSearch",   // 전세자금대출
   deposit: "depositProductsSearch",        // 정기예금
   savings: "savingProductsSearch",         // 적금
 };
