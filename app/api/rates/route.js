@@ -139,6 +139,43 @@ function summarizeCredit(base, option, asOf){
   };
 }
 
+// 전세자금대출: 자격 조건이 붙은 상품(청년·신혼 등)은 따로 분리해서 금리 최저값을 낸다
+const SPECIAL_ELIGIBILITY = /청년|신혼|다자녀|저소득|사회초년생|한부모|장애|고령|기초/;
+function summarizeJeonse(base, option, asOf){
+  const names = nameMap(base);
+  let general = null;
+  let special = null;
+  let rangeMin = null;
+  let rangeMax = null;
+  for(const o of option){
+    const avg = num(o.lend_rate_avg) ?? num(o.lend_rate_min);
+    if(!avg) continue;
+    const b = names.get(o.fin_co_no + "|" + o.fin_prdt_cd) || {};
+    const row = { rate: avg, product: ((b.kor_co_nm || "") + " " + (b.fin_prdt_nm || "")).trim(), type: o.lend_rate_type_nm || "" };
+    if(SPECIAL_ELIGIBILITY.test(b.fin_prdt_nm || "")){
+      if(!special || avg < special.rate) special = row;
+    } else if(!general || avg < general.rate){
+      general = row;
+    }
+    const mn = num(o.lend_rate_min);
+    const mx = num(o.lend_rate_max);
+    if(mn && (rangeMin === null || mn < rangeMin)) rangeMin = mn;
+    if(mx && (rangeMax === null || mx > rangeMax)) rangeMax = mx;
+  }
+  if(!general && !special) return null;
+  return {
+    asOf,
+    benchmarkRate: general ? general.rate : null,
+    benchmarkProduct: general ? general.product : "",
+    benchmarkType: general ? general.type : "",
+    specialRate: special ? special.rate : null,
+    specialProduct: special ? special.product : "",
+    rangeMin,
+    rangeMax,
+    productCount: option.length,
+  };
+}
+
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
@@ -156,7 +193,7 @@ export async function GET(req){
         ? summarizeSavings(base, option, asOf)
         : type === "credit"
           ? summarizeCredit(base, option, asOf)
-          : summarizeLoan(base, option, asOf);
+          : type === "jeonse" ? summarizeJeonse(base, option, asOf) : summarizeLoan(base, option, asOf);
       // 요약이 실패하면 실제 응답의 필드 이름만 남겨 두어 원인을 확인할 수 있게 한다 (금리 값은 제외)
       const fields = option[0] ? Object.keys(option[0]) : [];
       entry = { at: Date.now(), summary, fields, count: option.length };

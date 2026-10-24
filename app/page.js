@@ -340,7 +340,7 @@ export default function Page(){
       const B = loan.kind==="mortgage" ? pick("mortgage") : loan.kind==="credit" ? ((bm.creditByCb?.[loan.cb] || bm.creditByCb?.ALL)?.[creditBand(loan.score)]?.rate ?? 3.2) : loan.kind==="jeonse" ? pick("jeonse") : 3.2;
       if(amt>=1000000 && rate>B){
         const ms=Math.round(amt*(rate-B)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
       }
     });
     return {total:t,details:d};
@@ -477,7 +477,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && (l.score===""||l.score===undefined||!l.cb)))){alert("대출 종류를 선택해 주세요. 신용대출은 신용점수와 CB(KCB/NICE)도 입력해 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, creditByCb: creditInfo?.byCb ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && (l.score===""||l.score===undefined||!l.cb)))){alert("대출 종류를 선택해 주세요. 신용대출은 신용점수와 CB(KCB/NICE)도 입력해 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, credit: creditInfo?.benchmarkRate ?? null, creditByCb: creditInfo?.byCb ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null, jeonseProduct: jeonseInfo?.benchmarkProduct || "", jeonseType: jeonseInfo?.benchmarkType || "", jeonseSpecialRate: jeonseInfo?.specialRate ?? null, jeonseSpecialProduct: jeonseInfo?.specialProduct || ""}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
           </div>}
         </div>}
 
