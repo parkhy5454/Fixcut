@@ -49,6 +49,9 @@ function summarizeLoan(base, option, asOf){
   let rangeMin = null;
   let rangeMax = null;
   for(const o of option){
+    // 가감조정금리(금리에 더하거나 빼는 조정분)는 실제 대출 금리가 아니므로 제외한다
+    const typeNm = o.lend_rate_type_nm || o.crdt_lend_rate_type_nm || "";
+    if(typeNm.includes("가감")) continue;
     // 주택담보: lend_rate_*, 신용대출: crdt_grad_* (신용등급별 금리, avg는 등급 평균)
     const avg = num(o.lend_rate_avg) ?? num(o.crdt_grad_avg) ?? num(o.lend_rate_min);
     if(!avg) continue;
