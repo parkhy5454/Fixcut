@@ -325,6 +325,8 @@ export default function Page(){
     if(isNaN(d)) return str.slice(0,16);
     return new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
   };
+  const depInstList=(k)=> k==="savings" ? (savingInfo.savings?.companies||[]) : k==="deposit" ? (savingInfo.deposit?.companies||[]) : [...new Set([...(savingInfo.deposit?.companies||[]),...(savingInfo.savings?.companies||[])])].sort((a,b)=>a.localeCompare(b,"ko"));
+  const penInstList=(k)=> k==="savings" ? (pensionInfo?.savings?.companies||[]) : k==="irp_safe" ? (pensionInfo?.retirement?.companies?.["예금성 원리금보장"]||[]) : k==="irp_risky" ? (pensionInfo?.retirement?.companies?.["원리금비보장"]||[]) : [];
   const CAT_ORDER=["통신","OTT","담보","신용","전세","대출","예금","적금","연금","기타"];
   const catOf=d=>d.cat || (String(d.title).includes("알뜰폰")?"통신":(String(d.title).includes("해지")?"OTT":(String(d.title).includes("대환")?"대출":"기타")));
   const sortDetails=arr=>[...arr].sort((a,b)=>CAT_ORDER.indexOf(catOf(a))-CAT_ORDER.indexOf(catOf(b)));
@@ -373,7 +375,7 @@ export default function Page(){
       // 예금은 잔액 기준, 적금은 월 납입금 기준 (12개월 적금의 평균 적립 기간 약 6.5개월 가정)
       const months = isDep ? 1 : 6.5;
       const gain = Math.round(amt * months * (best - cur) / 100 / 12);
-      if(gain > 0) d.push({title: `${isDep ? "정기예금" : "적금"} ${cur}% → 최고 ${best}%`, save: gain, gain: true, cat: isDep ? "예금" : "적금", desc: `${formatComma(amt)}원 기준 · 금감원 기본금리 1위: ${bestName}`});
+      if(gain > 0) d.push({title: `${dep.institution ? dep.institution+" " : ""}${isDep ? "정기예금" : "적금"} ${cur}% → 최고 ${best}%`, save: gain, gain: true, cat: isDep ? "예금" : "적금", desc: `${formatComma(amt)}원 기준 · 금감원 기본금리 1위: ${bestName}`});
     });
     (form.pensions || []).forEach((pen) => {
       if(!pen.kind) return;
@@ -385,7 +387,7 @@ export default function Page(){
       if(!best || !amt || best <= cur) return;
       const gain = Math.round(amt * (best - cur) / 100 / 12);
       const label = pen.kind === "savings" ? "연금저축" : "퇴직연금";
-      if(gain > 0) d.push({title: `${label} ${cur}% → 최고 ${best}%`, save: gain, gain: true, cat: "연금", desc: `${formatComma(amt)}원 기준 · 5년 수익률 1위: ${bestName} (과거 수익률 기준)`});
+      if(gain > 0) d.push({title: `${pen.company ? pen.company+" " : ""}${label} ${cur}% → 최고 ${best}%`, save: gain, gain: true, cat: "연금", desc: `${formatComma(amt)}원 기준 · 5년 수익률 1위: ${bestName} (과거 수익률 기준)`});
     });
     return {total:t,details:d,compare:cmp};
   };
@@ -440,7 +442,7 @@ export default function Page(){
 
         {tab==="diag" && <div className="mt-6">
           <div className="w-full h-1.5 bg-black/5 rounded-full"><div className="h-full bg-black transition-all" style={{width: widthPercent}}></div></div>
-          <div className="mt-2 flex justify-between text-[10px] text-black/40"><span className={step>=1?"text-black font-bold":""}>이름</span><span className={step>=2?"text-black font-bold":""}>통신비</span><span className={step>=3?"text-black font-bold":""}>구독</span><span className={step>=4?"text-black font-bold":""}>대출</span></div>
+          <div className="mt-2 flex justify-between text-[10px] text-black/40"><span className={step>=1?"text-black font-bold":""}>이름</span><span className={step>=2?"text-black font-bold":""}>통신비</span><span className={step>=3?"text-black font-bold":""}>구독</span><span className={step>=4?"text-black font-bold":""}>대출</span><span className={step>=5?"text-black font-bold":""}>예/적금</span><span className={step>=6?"text-black font-bold":""}>연금</span></div>
           
           {step===1 && <div className="mt-8"><h2 className="text-[26px] font-black">이름을 알려주세요</h2><p className="text-[13px] text-black/50 mt-1">절약 결과를 저장할 때 필요해요</p><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="박현용" className="mt-4 w-full bg-gray-50 border rounded-2xl px-6 py-5 text-[18px] font-bold"/><button onClick={()=>{if(!form.name) return alert("이름 입력"); setStep(2);}} className="mt-6 w-full bg-black text-white rounded-full py-4 font-bold">다음</button></div>}
 
@@ -525,7 +527,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && (l.score===""||l.score===undefined||!l.cb)))){alert("대출 종류를 선택해 주세요. 신용대출은 신용점수와 CB(KCB/NICE)도 입력해 주세요"); return;} setStep(5);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음: 예·적금</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && (l.score===""||l.score===undefined||!l.cb)))){alert("대출 종류를 선택해 주세요. 신용대출은 신용점수와 CB(KCB/NICE)도 입력해 주세요"); return;} setStep(5);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음</button></div>
           </div>}
           {step===5 && <div className="mt-8">
             <div className="mt-8">
@@ -535,13 +537,14 @@ export default function Page(){
                 <div key={idx} className="border rounded-2xl p-4 mt-3 space-y-2">
                   <div className="flex justify-between items-center"><span className="text-[12px] font-bold text-black/50">예금·적금 {idx+1}</span><button onClick={()=>setForm({...form, deposits:(form.deposits||[]).filter((_,i)=>i!==idx)})} className="text-[11px] bg-red-50 text-red-500 border border-red-100 rounded-full px-3 py-1">삭제</button></div>
                   <select value={dep.kind||""} onChange={e=>{const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], kind:e.target.value}; setForm({...form, deposits:nd});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">종류 선택</option><option value="deposit">정기예금</option><option value="savings">적금</option></select>
+                  <select value={dep.institution||""} onChange={e=>{const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], institution:e.target.value}; setForm({...form, deposits:nd});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">기관 선택</option>{depInstList(dep.kind).map(c=><option key={c} value={c}>{c}</option>)}</select>
                   <input value={dep.amount||""} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], amount: raw===""?"":formatComma(Number(raw))}; setForm({...form, deposits:nd});}} inputMode="numeric" placeholder="예금 잔액 또는 월 납입금 (원)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                   <input value={dep.rate||""} onChange={e=>{let v=e.target.value.replace(/[^0-9.]/g,""); const parts=v.split("."); if(parts.length>2) v=parts[0]+"."+parts.slice(1).join(""); const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], rate:v}; setForm({...form, deposits:nd});}} inputMode="decimal" placeholder="현재 금리 (%)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                 </div>
               ))}
               <button onClick={()=>setForm({...form, deposits:[...(form.deposits||[]), {kind:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50 mt-3">+ 예금·적금 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(4)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>setStep(6)} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음: 연금</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(4)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>setStep(6)} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음</button></div>
           </div>}
           {step===6 && <div className="mt-8">
             <h2 className="text-[26px] font-black leading-tight">연금 정보를<br/>입력해주세요</h2>
@@ -551,7 +554,7 @@ export default function Page(){
                 <div key={idx} className="border rounded-2xl p-4 space-y-2">
                   <div className="flex justify-between items-center"><span className="text-[12px] font-bold text-black/50">연금 {idx+1}</span><button onClick={()=>setForm({...form, pensions:(form.pensions||[]).filter((_,i)=>i!==idx)})} className="text-[11px] bg-red-50 text-red-500 border border-red-100 rounded-full px-3 py-1">삭제</button></div>
                   <select value={pen.kind||""} onChange={e=>{const np=[...(form.pensions||[])]; np[idx]={...np[idx], kind:e.target.value}; setForm({...form, pensions:np});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">종류 선택</option><option value="savings">연금저축</option><option value="irp_safe">퇴직연금 IRP (예금성 원리금보장)</option><option value="irp_risky">퇴직연금 IRP (원리금비보장)</option></select>
-                  <input value={pen.company||""} onChange={e=>{const np=[...(form.pensions||[])]; np[idx]={...np[idx], company:e.target.value}; setForm({...form, pensions:np});}} placeholder="가입 기관 (예: 한국투자증권)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+                  <select value={pen.company||""} onChange={e=>{const np=[...(form.pensions||[])]; np[idx]={...np[idx], company:e.target.value}; setForm({...form, pensions:np});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">가입 기관 선택</option>{penInstList(pen.kind).map(c=><option key={c} value={c}>{c}</option>)}</select>
                   <input value={pen.amount||""} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const np=[...(form.pensions||[])]; np[idx]={...np[idx], amount: raw===""?"":formatComma(Number(raw))}; setForm({...form, pensions:np});}} inputMode="numeric" placeholder="적립금 (원)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                   <input value={pen.rate||""} onChange={e=>{const v=e.target.value.replace(/[^0-9.-]/g,""); const np=[...(form.pensions||[])]; np[idx]={...np[idx], rate:v}; setForm({...form, pensions:np});}} inputMode="decimal" placeholder="현재 수익률 (%)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
                 </div>

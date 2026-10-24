@@ -22,9 +22,15 @@ export async function GET(){
       .map(r => ({ company: r.company, avg5: r.IRP.avg5, avg3: r.IRP.avg3, reserve: r.IRP.reserve }));
   }
 
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ko"));
+  const retCompanies = {};
+  for(const kind of KINDS){
+    retCompanies[kind] = uniq(retirement.rows.filter(r => r.kind === kind && r.IRP && r.IRP.avg5 != null).map(r => r.company));
+  }
+
   return Response.json({
     ok: true,
-    savings: { asOf: savings.asOf, source: savings.source, top: savingsTop },
-    retirement: { asOf: retirement.asOf, source: retirement.source, irp },
+    savings: { asOf: savings.asOf, source: savings.source, top: savingsTop, companies: uniq(savings.rows.map(r => r.company)) },
+    retirement: { asOf: retirement.asOf, source: retirement.source, irp, companies: retCompanies },
   });
 }

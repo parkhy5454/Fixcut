@@ -110,7 +110,7 @@ function summarizeSavings(base, option, asOf){
   const std = rows.filter(r => r.term === "12개월" && r.baseRate);
   const basePool = std.length ? std : rows.filter(r => r.baseRate);
   const baseTop = [...basePool].sort((a, b) => b.baseRate - a.baseRate).slice(0, 5);
-  return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3), baseTop, baseTerm: std.length ? "12개월" : "전체 기간" };
+  return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3), baseTop, companies: [...new Set(rows.map(r=>r.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ko")), baseTerm: std.length ? "12개월" : "전체 기간" };
 }
 
 const CREDIT_BANDS = {
