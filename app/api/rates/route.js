@@ -7,7 +7,7 @@ const SERVICES = {
   jeonse: "rentHouseLoanProductsSearch",   // 전세자금대출
   deposit: "depositProductsSearch",        // 정기예금
   savings: "savingProductsSearch",         // 적금
-  pension: "annuitySavingProductsSearch", // 연금저축 (응답 필드 확인용, 아직 화면에 쓰지 않음)
+  pension: "annuitySavingProductsSearch", // 연금저축 (금융상품한눈에 오픈API 4번)
 };
 const BASE = "http://finlife.fss.or.kr/finlifeapi/";
 const TOP_GROUP = "020000"; // 은행
@@ -16,26 +16,34 @@ const cache = new Map();
 
 const num = v => { const n = Number(v); return n > 0 ? n : null; };
 
-async function fetchAll(svc, auth){
+async function fetchAll(svc, auth, groups = [TOP_GROUP]){
   const base = [];
   const option = [];
-  let page = 1;
-  let max = 1;
-  do{
-    const url = new URL(BASE + svc + ".json");
-    url.searchParams.set("auth", auth);
-    url.searchParams.set("topFinGrpNo", TOP_GROUP);
-    url.searchParams.set("pageNo", String(page));
-    const res = await fetch(url, { cache: "no-store" });
-    if(!res.ok) throw new Error("finlife http " + res.status);
-    const json = await res.json();
-    const r = json.result || {};
-    if(r.err_cd && String(r.err_cd) !== "000") throw new Error("finlife err " + r.err_cd);
-    base.push(...(r.baseList || []));
-    option.push(...(r.optionList || []));
-    max = Number(r.max_page_no) || 1;
-    page++;
-  }while(page <= max && page <= 30);
+  for(const group of groups){
+    let page = 1;
+    let max = 1;
+    do{
+      const url = new URL(BASE + svc + ".json");
+      url.searchParams.set("auth", auth);
+      url.searchParams.set("topFinGrpNo", group);
+      url.searchParams.set("pageNo", String(page));
+      const res = await fetch(url, { cache: "no-store" });
+      if(!res.ok) throw new Error("finlife http " + res.status);
+      const json = await res.json();
+      const r = json.result || {};
+      if(r.err_cd && String(r.err_cd) !== "000") throw new Error("finlife err " + r.err_cd);
+      base.push(...(r.baseList || []));
+      option.push(...(r.optionList || []));
+      // 연금저축은 products[{baseinfo, options}] 구조로 올 수 있다
+      for(const p of (Array.isArray(r.products) ? r.products : [])){
+        if(p.baseinfo) base.push(p.baseinfo);
+        const opts = p.options?.option ?? p.options ?? [];
+        option.push(...(Array.isArray(opts) ? opts : [opts]));
+      }
+      max = Number(r.max_page_no) || 1;
+      page++;
+    }while(page <= max && page <= 30);
+  }
   return { base, option };
 }
 
@@ -177,6 +185,27 @@ function summarizeJeonse(base, option, asOf){
   };
 }
 
+// 연금저축: 평균 수익률이 높은 상품 순 (수수료는 이 API에 없음)
+function summarizePension(base, option, asOf){
+  const rows = [];
+  for(const b of base){
+    const rate = num(b.avg_prft_rate);
+    if(!rate) continue;
+    rows.push({
+      company: b.kor_co_nm || "",
+      product: b.fin_prdt_nm || "",
+      kind: b.pnsn_kind_nm || "",
+      rate,
+      btrm1: num(b.btrm_prft_rate_1),
+      btrm2: num(b.btrm_prft_rate_2),
+      btrm3: num(b.btrm_prft_rate_3),
+    });
+  }
+  rows.sort((a, b) => b.rate - a.rate);
+  if(rows.length === 0) return null;
+  return { asOf, productCount: rows.length, best: rows[0], top: rows.slice(0, 3), baseKeys: Object.keys(base[0] || {}) };
+}
+
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
@@ -188,13 +217,14 @@ export async function GET(req){
 
     let entry = cache.get(type);
     if(!entry || Date.now() - entry.at > TTL_MS){
-      const { base, option } = await fetchAll(svc, auth);
+      const groups = type === "pension" ? ["020000", "050000", "060000"] : [TOP_GROUP];
+      const { base, option } = await fetchAll(svc, auth, groups);
       const asOf = base[0]?.dcls_month || null;
       const summary = (type === "deposit" || type === "savings")
         ? summarizeSavings(base, option, asOf)
         : type === "credit"
           ? summarizeCredit(base, option, asOf)
-          : type === "jeonse" ? summarizeJeonse(base, option, asOf) : summarizeLoan(base, option, asOf);
+          : type === "jeonse" ? summarizeJeonse(base, option, asOf) : type === "pension" ? summarizePension(base, option, asOf) : summarizeLoan(base, option, asOf);
       // 요약이 실패하면 실제 응답의 필드 이름만 남겨 두어 원인을 확인할 수 있게 한다 (금리 값은 제외)
       const fields = option[0] ? Object.keys(option[0]) : [];
       entry = { at: Date.now(), summary, fields, count: option.length };
