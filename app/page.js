@@ -427,7 +427,7 @@ export default function Page(){
     fetch("/api/rates?type=jeonse").then(r=>r.json()).then(d=>{ if(d.ok && d.summary) setJeonseInfo(d.summary); }).catch(()=>{});
   },[]);
 
-  const widthPercent = step * 25 + "%";
+  const widthPercent = Math.min(100, (step / 6) * 100) + "%";
   const shareLink = typeof window !== "undefined" ? window.location.origin + "?ref=" + referralCode : "?ref=" + referralCode;
 
   const copyLink = () => {
@@ -446,7 +446,7 @@ export default function Page(){
   };
 
   return (
-    <main className="min-h-screen bg-white pb-[96px]">
+    <main className="min-h-screen bg-white pb-[96px] overflow-x-hidden">
       <div className="max-w-[480px] mx-auto px-5 py-5">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2"><div className="w-7 h-7 bg-black rounded-lg flex items-center justify-center text-white font-black">F</div><span className="font-black">FIXCUT</span>{isAdmin && <span className="ml-1 text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full">ADMIN</span>}</div>
