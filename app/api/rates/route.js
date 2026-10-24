@@ -110,10 +110,12 @@ export async function GET(req){
       const summary = (type === "deposit" || type === "savings")
         ? summarizeSavings(base, option, asOf)
         : summarizeLoan(base, option, asOf);
-      entry = { at: Date.now(), summary };
+      // 요약이 실패하면 실제 응답의 필드 이름만 남겨 두어 원인을 확인할 수 있게 한다 (금리 값은 제외)
+      const fields = option[0] ? Object.keys(option[0]) : [];
+      entry = { at: Date.now(), summary, fields, count: option.length };
       cache.set(type, entry);
     }
-    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다" }, { status:502 });
+    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다", fields: entry.fields, optionCount: entry.count }, { status:502 });
     return Response.json({ ok:true, type, summary: entry.summary });
   }catch(e){
     console.error("rates", e.message);
