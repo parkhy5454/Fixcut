@@ -5,6 +5,7 @@ const SERVICES = {
   mortgage: "mortgageLoanProductsSearch",  // 주택담보대출
   credit: "creditLoanProductsSearch",      // 개인신용대출
   jeonse: "rentHouseLoanProductsSearch",   // 전세자금대출
+  business: "busiLoanProductsSearch",     // 개인사업자대출 (금감원 오픈API 개인사업자대출 API)
   deposit: "depositProductsSearch",        // 정기예금
   savings: "savingProductsSearch",         // 적금
   pension: "annuitySavingProductsSearch", // 연금저축 (금융상품한눈에 오픈API 4번)

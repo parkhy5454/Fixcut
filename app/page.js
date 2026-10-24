@@ -66,6 +66,7 @@ export default function Page(){
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
   const [editMode,setEditMode]=useState(false);
   const [rateInfo,setRateInfo]=useState(null);
+  const [busiInfo,setBusiInfo]=useState(null);
   const [creditInfo,setCreditInfo]=useState(null);
   const [jeonseInfo,setJeonseInfo]=useState(null);
   const [pensionInfo,setPensionInfo]=useState(null);
@@ -400,16 +401,16 @@ export default function Page(){
     form.loans.forEach((loan, idx)=>{
       const amt = parseNumber(loan.amount);
       const rate = parseFloat(loan.rate) || 0;
-      const B = loan.kind==="mortgage" ? pick("mortgage") : loan.kind==="credit" ? ((bm.creditByCb?.[loan.cb] || bm.creditByCb?.ALL)?.[creditBand(loan.score)]?.rate ?? 3.2) : loan.kind==="jeonse" ? pick("jeonse") : 3.2;
+      const B = loan.kind==="mortgage" ? pick("mortgage") : loan.kind==="credit" ? ((bm.creditByCb?.[loan.cb] || bm.creditByCb?.ALL)?.[creditBand(loan.score)]?.rate ?? 3.2) : loan.kind==="jeonse" ? pick("jeonse") : loan.kind==="business" ? pick("business") : 3.2;
       const bandInfo = loan.kind==="credit" ? (bm.creditByCb?.[loan.cb] || bm.creditByCb?.ALL)?.[creditBand(loan.score)] : null;
-      const refText = loan.kind==="mortgage" ? bm.mortgageProduct : loan.kind==="credit" ? (bandInfo ? (bandInfo.company+" "+bandInfo.product).trim() : "") : loan.kind==="jeonse" ? bm.jeonseProduct : "";
+      const refText = loan.kind==="mortgage" ? bm.mortgageProduct : loan.kind==="credit" ? (bandInfo ? (bandInfo.company+" "+bandInfo.product).trim() : "") : loan.kind==="jeonse" ? bm.jeonseProduct : loan.kind==="business" ? bm.businessProduct : "";
       if(rate>0 && refText){
-        cmp.push({kind:({mortgage:"담보",credit:"신용",jeonse:"전세"})[loan.kind], rate, B, text:refText, institution:loan.institution||"",
+        cmp.push({kind:({mortgage:"담보",credit:"신용",jeonse:"전세",business:"사업자"})[loan.kind], rate, B, text:refText, institution:loan.institution||"",
           special: loan.kind==="jeonse" && bm.jeonseSpecialRate ? "청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""});
       }
       if(amt>=1000000 && rate>B){
         const ms=Math.round(amt*(rate-B)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, cat:({mortgage:"담보",credit:"신용",jeonse:"전세"})[loan.kind]||"대출", desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, cat:({mortgage:"담보",credit:"신용",jeonse:"전세",business:"사업자"})[loan.kind]||"대출", desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
       }
     });
     (form.deposits || []).forEach((dep) => {
@@ -442,6 +443,7 @@ export default function Page(){
 
   useEffect(()=>{
     fetch("/api/rates?type=mortgage").then(r=>r.json()).then(d=>{ if(d.ok && d.summary) setRateInfo(d.summary); }).catch(()=>{});
+    fetch("/api/rates?type=business").then(r=>r.json()).then(d=>{ if(d.ok && d.summary) setBusiInfo(d.summary); }).catch(()=>{});
   },[]);
 
 
@@ -544,6 +546,7 @@ export default function Page(){
                       <option value="mortgage">주택담보대출</option>
                       <option value="credit">신용대출</option>
                       <option value="jeonse">전세자금대출</option>
+                      <option value="business">개인사업자대출</option>
                       <option value="other">기타</option>
                     </select>
                     {loan.kind==="credit" && <div className="space-y-2"><select value={loan.cb||""} onChange={e=>{const nl=[...form.loans]; nl[idx].cb=e.target.value; setForm({...form, loans:nl});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">CB 선택 (KCB / NICE)</option><option value="KCB">KCB</option><option value="NICE">NICE</option></select><input value={loan.score||""} onChange={e=>{const nl=[...form.loans]; nl[idx].score=e.target.value.replace(/[^0-9]/g,"").slice(0,4); setForm({...form, loans:nl});}} inputMode="numeric" placeholder="신용점수 (0~1000)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/></div>}
@@ -597,7 +600,7 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, pensions:[...(form.pensions||[]), {kind:"", company:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 연금 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(5)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, mortgageProduct: rateInfo?.benchmarkProduct || "", credit: creditInfo?.benchmarkRate ?? null, creditByCb: creditInfo?.byCb ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null, jeonseProduct: jeonseInfo?.benchmarkProduct || "", jeonseType: jeonseInfo?.benchmarkType || "", jeonseSpecialRate: jeonseInfo?.specialRate ?? null, jeonseSpecialProduct: jeonseInfo?.specialProduct || "", depositBest: savingInfo.deposit?.baseTop?.[0]?.baseRate ?? null, depositBestProduct: savingInfo.deposit?.baseTop?.[0] ? (savingInfo.deposit.baseTop[0].company+" "+savingInfo.deposit.baseTop[0].product) : "", savingsBest: savingInfo.savings?.baseTop?.[0]?.baseRate ?? null, savingsBestProduct: savingInfo.savings?.baseTop?.[0] ? (savingInfo.savings.baseTop[0].company+" "+savingInfo.savings.baseTop[0].product) : "", pensionBest: pensionInfo?.savings?.top?.[0]?.avg5 ?? null, pensionBestName: pensionInfo?.savings?.top?.[0]?.company ?? "", irpBest: pensionInfo ? Object.fromEntries(Object.entries(pensionInfo.retirement?.irp || {}).map(([k,v])=>[k,{rate:v[0]?.avg5 ?? null, name:v[0]?.company ?? ""}])) : {}}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(5)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{const r={...calc({business: busiInfo?.benchmarkRate ?? null, businessProduct: busiInfo?.benchmarkProduct || "", mortgage: rateInfo?.benchmarkRate ?? null, mortgageProduct: rateInfo?.benchmarkProduct || "", credit: creditInfo?.benchmarkRate ?? null, creditByCb: creditInfo?.byCb ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null, jeonseProduct: jeonseInfo?.benchmarkProduct || "", jeonseType: jeonseInfo?.benchmarkType || "", jeonseSpecialRate: jeonseInfo?.specialRate ?? null, jeonseSpecialProduct: jeonseInfo?.specialProduct || "", depositBest: savingInfo.deposit?.baseTop?.[0]?.baseRate ?? null, depositBestProduct: savingInfo.deposit?.baseTop?.[0] ? (savingInfo.deposit.baseTop[0].company+" "+savingInfo.deposit.baseTop[0].product) : "", savingsBest: savingInfo.savings?.baseTop?.[0]?.baseRate ?? null, savingsBestProduct: savingInfo.savings?.baseTop?.[0] ? (savingInfo.savings.baseTop[0].company+" "+savingInfo.savings.baseTop[0].product) : "", pensionBest: pensionInfo?.savings?.top?.[0]?.avg5 ?? null, pensionBestName: pensionInfo?.savings?.top?.[0]?.company ?? "", irpBest: pensionInfo ? Object.fromEntries(Object.entries(pensionInfo.retirement?.irp || {}).map(([k,v])=>[k,{rate:v[0]?.avg5 ?? null, name:v[0]?.company ?? ""}])) : {}}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기</button></div>
           </div>}
         </div>}
 
