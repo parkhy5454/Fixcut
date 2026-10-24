@@ -65,7 +65,6 @@ export default function Page(){
   const [rateInfo,setRateInfo]=useState(null);
   const [creditInfo,setCreditInfo]=useState(null);
   const [jeonseInfo,setJeonseInfo]=useState(null);
-  const [savingInfo,setSavingInfo]=useState({deposit:null,savings:null});
   const [verifyCode,setVerifyCode]=useState("");
   const [resetStep,setResetStep]=useState(null);
   const [resetEmail,setResetEmail]=useState("");
@@ -351,11 +350,6 @@ export default function Page(){
     fetch("/api/rates?type=mortgage").then(r=>r.json()).then(d=>{ if(d.ok && d.summary) setRateInfo(d.summary); }).catch(()=>{});
   },[]);
 
-  useEffect(()=>{
-    ["deposit","savings"].forEach(t=>{
-      fetch("/api/rates?type="+t).then(r=>r.json()).then(d=>{ if(d.ok && d.summary) setSavingInfo(prev=>({...prev,[t]:d.summary})); }).catch(()=>{});
-    });
-  },[]);
 
   useEffect(()=>{
     fetch("/api/rates?type=credit").then(r=>r.json()).then(d=>{ if(d.ok && d.summary) setCreditInfo(d.summary); }).catch(()=>{});
@@ -488,12 +482,6 @@ export default function Page(){
         </div>}
 
         {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-4 text-[11px] text-black/40 leading-relaxed">※ 추정치입니다. 알뜰폰 요금은 데이터 15GB 이하 기준 19,900원(초과 29,700원), 대환 기준금리는 {result.benchText ?? "3.2%(고정값)"}로 가정하고, 대출 원금 전체를 금리 차이만큼 낮춘다고 계산했습니다. {result.asOf ? "금감원 공시 기준 "+result.asOf+", " : ""}실제 조건과 결과는 다를 수 있습니다.</div><div className="mt-2 text-[11px] text-black/40 leading-relaxed">대환 기준금리는 금융감독원 '금융상품 한눈에'의 주택담보·신용·전세자금대출 상품별 평균금리 중 최저값이며, 우대 조건이 적용된 상품을 포함합니다. 실제 적용 금리는 개인의 신용도, 담보, 조건에 따라 달라질 수 있습니다. 신용대출 금리는 CB사(NICE·KCB) 신용점수 구간별로 공시된 직전월 신규 취급 대출의 가중평균금리입니다.</div>
-                {(savingInfo.deposit || savingInfo.savings) && <div className="mt-6 border rounded-2xl p-4">
-                  <div className="text-[11px] font-bold text-black/50">예금·적금 최고 우대금리 (금감원 공시, 참고용)</div>
-                  {savingInfo.deposit?.best && <div className="mt-2 text-[13px]"><div className="font-bold">정기예금 최고 {savingInfo.deposit.best.topRate}%</div><div className="text-[11px] text-black/50">{savingInfo.deposit.best.company} {savingInfo.deposit.best.product} {savingInfo.deposit.best.term}</div></div>}
-                  {savingInfo.savings?.best && <div className="mt-2 text-[13px]"><div className="font-bold">적금 최고 {savingInfo.savings.best.topRate}%</div><div className="text-[11px] text-black/50">{savingInfo.savings.best.company} {savingInfo.savings.best.product} {savingInfo.savings.best.term}</div></div>}
-                  <div className="mt-2 text-[11px] text-black/40">기준월 {(savingInfo.deposit || savingInfo.savings).asOf}. 최고 금리는 우대 조건을 모두 충족해야 받을 수 있으며, 실제 조건은 금융사에서 확인하세요.</div>
-                </div>}
                 <div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
         {tab==="records" && <div className="mt-6">
