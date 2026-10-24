@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { createHash } from "crypto";
 import { checkSession } from "../auth/password.js";
 import { allowRequest } from "../auth/ratelimit.js";
 import { confirmRewards } from "../auth/referral.js";
@@ -50,9 +51,14 @@ export async function POST(req){
       await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS email TEXT`;
     }catch(e){}
     await ensureSavingColumns(sql);
+    try{ await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS content_hash TEXT`; }catch(e){}
+    // 같은 내용을 10분 안에 다시 저장하면 중복 기록을 만들지 않는다 (이름·전화번호는 해시로만 비교)
+    const contentHash = createHash("sha256").update(JSON.stringify({ owner, name: body.name||"", phone: body.phone||"", total: body.total||0, details: body.details||[], inputs: body.inputs||{}, loans: body.loans||[], ott: body.ott||{} })).digest("hex");
+    const dup = await sql`SELECT id FROM savings WHERE content_hash=${contentHash} AND created_at > NOW() - INTERVAL '10 minutes' LIMIT 1`;
+    if(dup.length > 0) return Response.json({ok:true, duplicate:true});
 
     // 전화번호와 금액·항목 데이터는 암호화해서 저장한다 (평문 열은 비워 둔다)
-    await sql`INSERT INTO savings (name, phone_enc, total, details_enc, inputs_enc, carrier, phone_fee, data_usage, ott_enc, loans_enc, email)
+    await sql`INSERT INTO savings (name, phone_enc, total, details_enc, inputs_enc, carrier, phone_fee, data_usage, ott_enc, loans_enc, email, content_hash)
       VALUES (
         ${body.name||""},
         ${encryptField(body.phone||"")},
@@ -64,7 +70,8 @@ export async function POST(req){
         ${body.inputs?.dataUsage||body.dataUsage||""},
         ${encryptJson(body.inputs?.ott||body.ott||{})},
         ${encryptJson(body.inputs?.loans||body.loans||[])},
-        ${owner}
+        ${owner},
+        ${contentHash}
       )`;
     if(owner){ try{ await confirmRewards(sql, owner); }catch(e){ console.error("confirm rewards", e); } }
     return Response.json({ok:true});

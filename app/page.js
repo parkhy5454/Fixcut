@@ -315,6 +315,14 @@ export default function Page(){
     }catch(e){ alert("네트워크 오류로 진단 기록을 저장하지 못했습니다"); }
   };
   // 신용점수 -> 금감원 공시 구간 (900 초과, 801~900, 701~800, 601~700, 501~600, 401~500, 301~400, 300 이하)
+  // 기록 시각을 한국 시간(KST)으로 표시 (DB 값이 시간대 표시 없이 오면 UTC로 본다)
+  const fmtKst=v=>{
+    if(!v) return "";
+    const str = String(v);
+    const d = v instanceof Date ? v : new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : str.replace(" ","T")+"Z");
+    if(isNaN(d)) return str.slice(0,16);
+    return new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
+  };
   const creditBand=s=>{ const n=Number(s); if(!(n>=0)) return null; if(n>900) return "1"; if(n>=801) return "4"; if(n>=701) return "5"; if(n>=601) return "6"; if(n>=501) return "10"; if(n>=401) return "11"; if(n>=301) return "12"; return "13"; };
   const benchTextOf=(m,c,j)=>"주택담보 "+(m? m.benchmarkRate+"%" : "3.2%(고정값)")+", 신용 "+(c&&c.byCb? "신용점수·CB 구간별 금감원 공시 값" : "3.2%(고정값)")+", 전세 "+(j? j.benchmarkRate+"%" : "3.2%(고정값)")+" (상품별 평균금리 최저값)";
   const calc=(bench)=>{
@@ -493,7 +501,7 @@ export default function Page(){
                 : myRecords==="error" ? <p className="text-[12px] text-red-500 mt-2">기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요</p>
                 : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
                 : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
-                    <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{String(r.created_at).slice(0,10)}</span></div>
+                    <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{fmtKst(r.created_at)}</span></div>
                     {(() => {
                       const items = r.details || [];
                       const carrier = items.filter(d=>d.title.includes("알뜰폰"));
