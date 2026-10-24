@@ -57,7 +57,7 @@ export default function Page(){
   const [form,setForm]=useState({
     name:"", carrier:"KT", phoneFee:"69,000", dataUsage:"11",
     ott:{netflix:false,youtube:false,disney:false,wavve:false,tving:false},
-    loans:[{institution:"", amount:"30,000,000", rate:"4.8"}]
+    loans:[{institution:"", amount:"30,000,000", rate:"4.8"}], deposits:[]
   });
   const [result,setResult]=useState(null);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
@@ -325,7 +325,7 @@ export default function Page(){
     if(isNaN(d)) return str.slice(0,16);
     return new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
   };
-  const CAT_ORDER=["통신","OTT","담보","신용","전세","대출","기타"];
+  const CAT_ORDER=["통신","OTT","담보","신용","전세","대출","예금","적금","기타"];
   const catOf=d=>d.cat || (String(d.title).includes("알뜰폰")?"통신":(String(d.title).includes("해지")?"OTT":(String(d.title).includes("대환")?"대출":"기타")));
   const sortDetails=arr=>[...arr].sort((a,b)=>CAT_ORDER.indexOf(catOf(a))-CAT_ORDER.indexOf(catOf(b)));
   const creditBand=s=>{ const n=Number(s); if(!(n>=0)) return null; if(n>900) return "1"; if(n>=801) return "4"; if(n>=701) return "5"; if(n>=601) return "6"; if(n>=501) return "10"; if(n>=401) return "11"; if(n>=301) return "12"; return "13"; };
@@ -361,6 +361,19 @@ export default function Page(){
         const ms=Math.round(amt*(rate-B)/100/12);
         if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, cat:({mortgage:"담보",credit:"신용",jeonse:"전세"})[loan.kind]||"대출", desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
       }
+    });
+    (form.deposits || []).forEach((dep) => {
+      const isDep = dep.kind === "deposit";
+      if(!dep.kind) return;
+      const amt = parseNumber(dep.amount);
+      const cur = parseFloat(dep.rate) || 0;
+      const best = isDep ? bm.depositBest : bm.savingsBest;
+      const bestName = isDep ? bm.depositBestProduct : bm.savingsBestProduct;
+      if(!best || !amt || best <= cur) return;
+      // 예금은 잔액 기준, 적금은 월 납입금 기준 (12개월 적금의 평균 적립 기간 약 6.5개월 가정)
+      const months = isDep ? 1 : 6.5;
+      const gain = Math.round(amt * months * (best - cur) / 100 / 12);
+      if(gain > 0) d.push({title: `${isDep ? "정기예금" : "적금"} ${cur}% → 최고 ${best}%`, save: gain, gain: true, cat: isDep ? "예금" : "적금", desc: `${formatComma(amt)}원 기준 · 금감원 기본금리 1위: ${bestName}`});
     });
     return {total:t,details:d,compare:cmp};
   };
@@ -500,11 +513,24 @@ export default function Page(){
               ))}
               <button onClick={()=>setForm({...form, loans:[...form.loans, {institution:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50">+ 대출 추가하기</button>
             </div>
-            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && (l.score===""||l.score===undefined||!l.cb)))){alert("대출 종류를 선택해 주세요. 신용대출은 신용점수와 CB(KCB/NICE)도 입력해 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, mortgageProduct: rateInfo?.benchmarkProduct || "", credit: creditInfo?.benchmarkRate ?? null, creditByCb: creditInfo?.byCb ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null, jeonseProduct: jeonseInfo?.benchmarkProduct || "", jeonseType: jeonseInfo?.benchmarkType || "", jeonseSpecialRate: jeonseInfo?.specialRate ?? null, jeonseSpecialProduct: jeonseInfo?.specialProduct || ""}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
+            <div className="mt-8">
+              <h3 className="font-black text-[16px]">예금·적금 (선택)</h3>
+              <p className="text-[12px] text-black/50 mt-1">가입 중인 예금·적금이 있으면 입력하세요. 금감원 기본금리 1위와 비교해 늘어나는 이자를 보여 줍니다.</p>
+              {(form.deposits || []).map((dep, idx)=>(
+                <div key={idx} className="border rounded-2xl p-4 mt-3 space-y-2">
+                  <div className="flex justify-between items-center"><span className="text-[12px] font-bold text-black/50">예금·적금 {idx+1}</span><button onClick={()=>setForm({...form, deposits:(form.deposits||[]).filter((_,i)=>i!==idx)})} className="text-[11px] bg-red-50 text-red-500 border border-red-100 rounded-full px-3 py-1">삭제</button></div>
+                  <select value={dep.kind||""} onChange={e=>{const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], kind:e.target.value}; setForm({...form, deposits:nd});}} className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"><option value="">종류 선택</option><option value="deposit">정기예금</option><option value="savings">적금</option></select>
+                  <input value={dep.amount||""} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], amount: raw===""?"":formatComma(Number(raw))}; setForm({...form, deposits:nd});}} inputMode="numeric" placeholder="예금 잔액 또는 월 납입금 (원)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+                  <input value={dep.rate||""} onChange={e=>{let v=e.target.value.replace(/[^0-9.]/g,""); const parts=v.split("."); if(parts.length>2) v=parts[0]+"."+parts.slice(1).join(""); const nd=[...(form.deposits||[])]; nd[idx]={...nd[idx], rate:v}; setForm({...form, deposits:nd});}} inputMode="decimal" placeholder="현재 금리 (%)" className="w-full bg-white border rounded-xl px-4 py-3.5 text-[14px] font-bold"/>
+                </div>
+              ))}
+              <button onClick={()=>setForm({...form, deposits:[...(form.deposits||[]), {kind:"", amount:"", rate:""}]})} className="w-full border-2 border-dashed rounded-2xl py-4 font-bold text-[14px] text-black/50 hover:bg-gray-50 mt-3">+ 예금·적금 추가하기</button>
+            </div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setStep(3)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>{if(form.loans.some(l=>(!l.kind && (l.amount || l.rate)) || (l.kind==="credit" && (l.score===""||l.score===undefined||!l.cb)))){alert("대출 종류를 선택해 주세요. 신용대출은 신용점수와 CB(KCB/NICE)도 입력해 주세요"); return;} const r={...calc({mortgage: rateInfo?.benchmarkRate ?? null, mortgageProduct: rateInfo?.benchmarkProduct || "", credit: creditInfo?.benchmarkRate ?? null, creditByCb: creditInfo?.byCb ?? null, jeonse: jeonseInfo?.benchmarkRate ?? null, jeonseProduct: jeonseInfo?.benchmarkProduct || "", jeonseType: jeonseInfo?.benchmarkType || "", jeonseSpecialRate: jeonseInfo?.specialRate ?? null, jeonseSpecialProduct: jeonseInfo?.specialProduct || "", depositBest: savingInfo.deposit?.baseTop?.[0]?.baseRate ?? null, depositBestProduct: savingInfo.deposit?.baseTop?.[0] ? (savingInfo.deposit.baseTop[0].company+" "+savingInfo.deposit.baseTop[0].product) : "", savingsBest: savingInfo.savings?.baseTop?.[0]?.baseRate ?? null, savingsBestProduct: savingInfo.savings?.baseTop?.[0] ? (savingInfo.savings.baseTop[0].company+" "+savingInfo.savings.baseTop[0].product) : ""}), benchText: benchTextOf(rateInfo, creditInfo, jeonseInfo), asOf: rateInfo?.asOf || creditInfo?.asOf || jeonseInfo?.asOf || null}; setResult(r); setTab("saving"); saveDiagnosis(r);}} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">결과 보기 ({form.loans.length}건 계산)</button></div>
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{sortDetails(result.details).map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-start gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black text-white">{catOf(d)}</span><span className="font-bold text-[14px]">{d.title}</span></div><div className="text-[11px] text-black/40 mt-1">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px] whitespace-nowrap">−{formatComma(d.save)}원</div></div>)}{result.details.length>0 && <div className="flex justify-between items-center border-t pt-4 mt-2"><span className="font-black text-[14px]">월 합계</span><span className="font-black text-violet-600 text-[16px]">−{formatComma(result.total)}원</span></div>}</div>{(savingInfo.deposit?.baseTop || savingInfo.savings?.baseTop) && <div className="mt-6"><div className="text-[13px] font-black">저축 비교 <span className="text-[11px] font-bold text-black/40">(금감원 공시 기본금리 기준)</span></div>
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 약 {formatComma(result.total)}원 절약 <span className="text-[13px] font-bold text-black/40">(추정)</span></h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{sortDetails(result.details).map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-start gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black text-white">{catOf(d)}</span><span className="font-bold text-[14px]">{d.title}</span></div><div className="text-[11px] text-black/40 mt-1">{d.desc}</div></div><div className={"font-black text-[15px] whitespace-nowrap "+(d.gain?"text-emerald-600":"text-violet-600")}>{d.gain?"+":"−"}{formatComma(d.save)}원</div></div>)}{result.details.length>0 && <div className="flex justify-between items-center border-t pt-4 mt-2"><span className="font-black text-[14px]">월 합계</span><span className="font-black text-violet-600 text-[16px]">−{formatComma(result.total)}원</span></div>}</div>{(savingInfo.deposit?.baseTop || savingInfo.savings?.baseTop) && <div className="mt-6"><div className="text-[13px] font-black">저축 비교 <span className="text-[11px] font-bold text-black/40">(금감원 공시 기본금리 기준)</span></div>
                   <div className="mt-2 border rounded-2xl p-3 text-[12px] space-y-2">
                     {savingInfo.deposit?.baseTop && <div><div className="font-bold">정기예금 ({savingInfo.deposit.baseTerm}, {savingInfo.deposit.asOf})</div><table className="w-full text-[12px] mt-1"><thead><tr className="text-black/50 text-left border-b"><th className="py-1 font-medium">기관 · 상품</th><th className="py-1 font-medium text-right whitespace-nowrap">기본</th><th className="py-1 font-medium text-right whitespace-nowrap">우대 최고</th></tr></thead><tbody>{savingInfo.deposit.baseTop.map((r,i)=><tr key={i} className="border-b border-black/5"><td className="py-1.5 pr-2">{r.company}<div className="text-[11px] text-black/40">{r.product}</div></td><td className="py-1.5 text-right font-bold whitespace-nowrap">{r.baseRate}%</td><td className="py-1.5 text-right text-black/50 whitespace-nowrap">{r.topRate}%</td></tr>)}</tbody></table></div>}
                     {savingInfo.savings?.baseTop && <div className="pt-2"><div className="font-bold">적금 ({savingInfo.savings.baseTerm}, {savingInfo.savings.asOf})</div><table className="w-full text-[12px] mt-1"><thead><tr className="text-black/50 text-left border-b"><th className="py-1 font-medium">기관 · 상품</th><th className="py-1 font-medium text-right whitespace-nowrap">기본</th><th className="py-1 font-medium text-right whitespace-nowrap">우대 최고</th></tr></thead><tbody>{savingInfo.savings.baseTop.map((r,i)=><tr key={i} className="border-b border-black/5"><td className="py-1.5 pr-2">{r.company}<div className="text-[11px] text-black/40">{r.product}</div></td><td className="py-1.5 text-right font-bold whitespace-nowrap">{r.baseRate}%</td><td className="py-1.5 text-right text-black/50 whitespace-nowrap">{r.topRate}%</td></tr>)}</tbody></table></div>}
@@ -532,7 +558,7 @@ export default function Page(){
                 : myRecords.length===0 ? <p className="text-[12px] text-black/50 mt-2">아직 저장된 진단 기록이 없어요</p>
                 : <div className="mt-3 space-y-2">{myRecords.map(r=><div key={r.id} className="border rounded-2xl p-4">
                     <div className="flex justify-between"><span className="font-bold text-[14px]">{formatComma(r.total||0)}원 절약</span><span className="text-[11px] text-black/40">{fmtKst(r.created_at)}</span></div>
-                    {sortDetails(r.details || []).length>0 && <div className="mt-2 space-y-1.5">{sortDetails(r.details || []).map((d,i)=><div key={i} className="flex justify-between items-center gap-2 text-[12px]"><span className="text-black/70 min-w-0"><span className="inline-block mr-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/5 text-black/60">{catOf(d)}</span>{d.title}</span><span className="font-bold text-violet-600 whitespace-nowrap">−{formatComma(d.save)}원</span></div>)}</div>}
+                    {sortDetails(r.details || []).length>0 && <div className="mt-2 space-y-1.5">{sortDetails(r.details || []).map((d,i)=><div key={i} className="flex justify-between items-center gap-2 text-[12px]"><span className="text-black/70 min-w-0"><span className="inline-block mr-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/5 text-black/60">{catOf(d)}</span>{d.title}</span><span className={"font-bold whitespace-nowrap "+(d.gain?"text-emerald-600":"text-violet-600")}>{d.gain?"+":"−"}{formatComma(d.save)}원</span></div>)}</div>}
                   </div>)}</div>}
             </div>
 
