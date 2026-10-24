@@ -219,8 +219,15 @@ export async function GET(req){
 
     let entry = cache.get(type);
     if(!entry || Date.now() - entry.at > TTL_MS){
-      const groups = type === "pension" ? ["020000", "050000", "060000"] : [TOP_GROUP];
+      const groups = type === "pension" ? ["060000", "050000", "020000"] : [TOP_GROUP];
       const { base, option, meta } = await fetchAll(svc, auth, groups);
+      const perGroup = {};
+      if(type === "pension"){
+        for(const g of groups){
+          const one = await fetchAll(svc, auth, [g]);
+          perGroup[g] = { baseCount: one.base.length, optionCount: one.option.length, baseKeys: Object.keys(one.base[0] || {}).slice(0, 40), sample: one.base.slice(0, 2).map(b => ({ kor_co_nm: b.kor_co_nm, fin_prdt_nm: b.fin_prdt_nm, avg_prft_rate: b.avg_prft_rate ?? null })) };
+        }
+      }
       const asOf = base[0]?.dcls_month || null;
       const summary = (type === "deposit" || type === "savings")
         ? summarizeSavings(base, option, asOf)
@@ -229,10 +236,10 @@ export async function GET(req){
           : type === "jeonse" ? summarizeJeonse(base, option, asOf) : type === "pension" ? summarizePension(base, option, asOf) : summarizeLoan(base, option, asOf);
       // 요약이 실패하면 실제 응답의 필드 이름만 남겨 두어 원인을 확인할 수 있게 한다 (금리 값은 제외)
       const fields = option[0] ? Object.keys(option[0]) : [];
-      entry = { at: Date.now(), summary, fields, count: option.length, baseCount: base.length, baseKeys: Object.keys(base[0] || {}), meta };
+      entry = { at: Date.now(), summary, fields, count: option.length, baseCount: base.length, baseKeys: Object.keys(base[0] || {}), meta, perGroup };
       cache.set(type, entry);
     }
-    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다", fields: entry.fields, optionCount: entry.count, baseCount: entry.baseCount, baseKeys: entry.baseKeys, meta: entry.meta }, { status:502 });
+    if(!entry.summary) return Response.json({ ok:false, error:"금리 데이터가 없습니다", fields: entry.fields, optionCount: entry.count, baseCount: entry.baseCount, baseKeys: entry.baseKeys, meta: entry.meta, perGroup: entry.perGroup }, { status:502 });
     return Response.json({ ok:true, type, summary: entry.summary });
   }catch(e){
     console.error("rates", e.message);
