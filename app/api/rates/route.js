@@ -49,14 +49,15 @@ function summarizeLoan(base, option, asOf){
   let rangeMin = null;
   let rangeMax = null;
   for(const o of option){
-    const avg = num(o.lend_rate_avg) ?? num(o.lend_rate_min);
+    // 주택담보: lend_rate_*, 신용대출: crdt_grad_* (신용등급별 금리, avg는 등급 평균)
+    const avg = num(o.lend_rate_avg) ?? num(o.crdt_grad_avg) ?? num(o.lend_rate_min);
     if(!avg) continue;
     if(!best || avg < best.rate){
       const b = names.get(o.fin_co_no + "|" + o.fin_prdt_cd) || {};
-      best = { rate: avg, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", type: o.lend_rate_type_nm || "" };
+      best = { rate: avg, company: b.kor_co_nm || "", product: b.fin_prdt_nm || "", type: o.lend_rate_type_nm || o.crdt_lend_rate_type_nm || "" };
     }
-    const mn = num(o.lend_rate_min);
-    const mx = num(o.lend_rate_max);
+    const mn = num(o.lend_rate_min) ?? num(o.crdt_grad_1);
+    const mx = num(o.lend_rate_max) ?? num(o.crdt_grad_13);
     if(mn && (rangeMin === null || mn < rangeMin)) rangeMin = mn;
     if(mx && (rangeMax === null || mx > rangeMax)) rangeMax = mx;
   }
