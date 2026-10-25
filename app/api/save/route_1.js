@@ -1,16 +1,29 @@
+
 import { neon } from "@neondatabase/serverless";
 export async function POST(req){
   try{
     const body = await req.json();
+    const email = (body.email || body.inputs?.email || "").trim().toLowerCase();
+    const phone = (body.phone || "").trim();
+    const name = (body.name || "").trim();
+    const total = body.total || 0;
+    const details = body.details || [];
+    const inputs = body.inputs || {};
+    const carrier = body.carrier || inputs.carrier || "";
+    const phoneFee = body.phoneFee || inputs.phoneFee || "";
+    const dataUsage = body.dataUsage || inputs.dataUsage || "";
+    const ott = inputs.ott || body.ott || {};
+    const loans = inputs.loans || body.loans || [];
+    
     if(!process.env.DATABASE_URL) return Response.json({ok:true,mock:true});
     const sql = neon(process.env.DATABASE_URL);
     await sql`CREATE TABLE IF NOT EXISTS savings (
       id SERIAL PRIMARY KEY,
-      name TEXT,
+      email TEXT,
       phone TEXT,
-      total INT,
+      name TEXT,
+      total INTEGER,
       details JSONB,
-      inputs JSONB,
       carrier TEXT,
       phone_fee TEXT,
       data_usage TEXT,
@@ -18,31 +31,13 @@ export async function POST(req){
       loans JSONB,
       created_at TIMESTAMP DEFAULT NOW()
     )`;
-    // add columns if old table exists
-    try{
-      await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS inputs JSONB`;
-      await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS carrier TEXT`;
-      await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS phone_fee TEXT`;
-      await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS data_usage TEXT`;
-      await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS ott JSONB`;
-      await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS loans JSONB`;
-    }catch(e){}
-
-    await sql`INSERT INTO savings (name, phone, total, details, inputs, carrier, phone_fee, data_usage, ott, loans)
-      VALUES (
-        ${body.name||""},
-        ${body.phone||""},
-        ${body.total||0},
-        ${JSON.stringify(body.details||[])},
-        ${JSON.stringify(body.inputs||{})},
-        ${body.inputs?.carrier||body.carrier||""},
-        ${body.inputs?.phoneFee||body.phoneFee||""},
-        ${body.inputs?.dataUsage||body.dataUsage||""},
-        ${JSON.stringify(body.inputs?.ott||body.ott||{})},
-        ${JSON.stringify(body.inputs?.loans||body.loans||[])}
-      )`;
+    // Add email column if not exists (for old DB)
+    try{ await sql`ALTER TABLE savings ADD COLUMN IF NOT EXISTS email TEXT`; }catch(e){}
+    
+    await sql`INSERT INTO savings (email, phone, name, total, details, carrier, phone_fee, data_usage, ott, loans) VALUES (${email}, ${phone}, ${name}, ${total}, ${JSON.stringify(details)}, ${carrier}, ${phoneFee}, ${dataUsage}, ${JSON.stringify(ott)}, ${JSON.stringify(loans)})`;
     return Response.json({ok:true});
   }catch(e){
-    return Response.json({ok:false,error:String(e)},{status:500});
+    console.error(e);
+    return Response.json({ok:false, error:String(e)}, {status:500});
   }
 }

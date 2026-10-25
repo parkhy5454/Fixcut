@@ -45,6 +45,7 @@ export default function Page(){
     loans:[{institution:"", amount:"30,000,000", rate:"4.8"}]
   });
   const [result,setResult]=useState(null);
+  const [myDiagnoses,setMyDiagnoses]=useState([]);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
   const [editMode,setEditMode]=useState(false);
   const [editForm,setEditForm]=useState({name:"",phone:"",email:"",password:"",newPassword:""});
@@ -52,6 +53,12 @@ export default function Page(){
   const [myReferrals,setMyReferrals]=useState([]);
   const [copied,setCopied]=useState(false);
 
+  useEffect(()=>{
+    try{
+      const saved = localStorage.getItem("fixcut_my_diagnoses");
+      if(saved) setMyDiagnoses(JSON.parse(saved));
+    }catch(e){}
+  },[]);
   useEffect(()=>{
     if(tab==="diag" && auth && step===1){ const dName=getDisplayName(auth); if(dName){ setForm(prev=>({...prev, name:dName})); setStep(2); } }
   },[tab, auth]);

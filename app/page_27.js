@@ -51,24 +51,26 @@ export default function Page(){
   const [myReferrals,setMyReferrals]=useState([]);
   const [copied,setCopied]=useState(false);
 
-  
   useEffect(()=>{
     try{
       const s=localStorage.getItem("fixcut_auth");
-      if(s){ 
+      if(s){
         const u=JSON.parse(s);
         setAuth(u);
+        setEditForm({name:u.name||"",phone:u.phone||"",email:u.email||"",password:"",newPassword:""});
+        const code = (u.email?.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
+        setReferralCode(localStorage.getItem("fixcut_ref_code")||code);
+        if(!localStorage.getItem("fixcut_ref_code")) localStorage.setItem("fixcut_ref_code", code);
       }
-      const saved=localStorage.getItem("fixcut_my_diagnoses");
-      if(saved){ try{ setMyDiagnoses(JSON.parse(saved)); }catch(e){} }
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get("ref");
+      if(ref){
+        setAuthForm(prev=>({...prev, referralCode:ref}));
+        localStorage.setItem("fixcut_incoming_ref", ref);
+      }
     }catch(e){}
   },[]);
 
-  useEffect(()=>{
-    if(auth){
-      setEditForm({name:auth.name||"", phone:auth.phone||"", email:auth.email||"", password:"", newPassword:""});
-    }
-  }, [auth]);
   useEffect(()=>{
     if(referralCode && auth){
       fetch("/api/referral?code="+referralCode).then(r=>r.json()).then(d=>setMyReferrals(d.referrals||[])).catch(()=>{});
@@ -122,7 +124,7 @@ export default function Page(){
       const rate = parseFloat(loan.rate) || 0;
       if(amt>=1000000 && rate>3.2){
         const ms=Math.round(amt*(rate-3.2)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → 3.2% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → 3.2% 케이뱅크 대환 최저 3.85% 기준`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
       }
     });
     return {total:t,details:d};
@@ -242,7 +244,7 @@ export default function Page(){
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약 (추정치)</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
         {tab==="referral" && <div className="mt-6">
           <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
@@ -318,7 +320,7 @@ export default function Page(){
           <button onClick={async()=>{
             const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
             if(showAuth==="signup" && (!authForm.name||!authForm.phone||!authForm.email||!authForm.password)){alert("모두 입력"); return;}
-            const user={name:authForm.name||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email};
+            const user={name:authForm.name||"",phone:authForm.phone,email:authForm.email};
             localStorage.setItem("fixcut_auth",JSON.stringify(user));
             const code = (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
             localStorage.setItem("fixcut_ref_code", code);
