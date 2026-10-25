@@ -410,7 +410,7 @@ export default function Page(){
       }
       if(amt>=1000000 && rate>B){
         const ms=Math.round(amt*(rate-B)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, cat:({mortgage:"담보",credit:"신용",jeonse:"전세",business:"사업자"})[loan.kind]||"대출", desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${loan.kind==="jeonse" && bm.jeonseProduct ? " · 금감원 최저: "+bm.jeonseProduct+" "+B+"% ("+bm.jeonseType+")" : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → ${B}% 대환`,save:ms, cat:({mortgage:"담보",credit:"신용",jeonse:"전세",business:"사업자"})[loan.kind]||"대출", desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준${refText ? " · 갈아탈 상품: "+refText+" "+B+"%"+(loan.kind==="jeonse" && bm.jeonseType ? " ("+bm.jeonseType+")" : "") : ""}${loan.kind==="jeonse" && bm.jeonseSpecialRate ? " · 청년·신혼 등 자격 상품 "+bm.jeonseSpecialRate+"% (자격 확인 필요)" : ""}`});}
       }
     });
     (form.deposits || []).forEach((dep) => {
