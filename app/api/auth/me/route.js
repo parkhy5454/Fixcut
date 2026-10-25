@@ -1,18 +1,28 @@
+
 import { neon } from "@neondatabase/serverless";
-import { openPhone, ensureUserColumns } from "../crypto.js";
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
-    const email = (searchParams.get("email")||"").trim().toLowerCase();
+    const email = searchParams.get("email");
     if(!email) return Response.json({ok:false},{status:400});
-    if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
-    if(!process.env.DATABASE_URL) return Response.json({ok:false, mock:true},{status:503});
+    if(!process.env.DATABASE_URL) return Response.json({ok:true, user:{name:"테스트", email, phone:"010-1234-5678"}});
     const sql = neon(process.env.DATABASE_URL);
-    await ensureUserColumns(sql);
-    const rows = await sql`SELECT id, name, phone, phone_enc, email, verified_at FROM users WHERE LOWER(email)=LOWER(${email}) LIMIT 1`;
+    const rows = await sql`SELECT id, name, phone, email FROM users WHERE email=${email} LIMIT 1`;
     if(rows.length===0) return Response.json({ok:false},{status:404});
-    const r = rows[0];
-    return Response.json({ok:true, user:{name:r.name, phone:openPhone(r), email:r.email, verified:!!r.verified_at}});
-  }catch(e){ return Response.json({ok:false, error:"서버 오류가 발생했습니다"},{status:500}); }
+    return Response.json({ok:true, user:rows[0]});
+  }catch(e){
+    return Response.json({ok:false, error:String(e)},{status:500});
+  }
 }
-// 예전의 인증 없는 POST(이름·번호 변경)는 제거했다. 정보 수정은 /api/auth/update 를 사용한다.
+export async function POST(req){
+  try{
+    const {email, name} = await req.json();
+    if(!email || !name) return Response.json({ok:false},{status:400});
+    if(!process.env.DATABASE_URL) return Response.json({ok:true});
+    const sql = neon(process.env.DATABASE_URL);
+    await sql`UPDATE users SET name=${name.trim()} WHERE email=${email}`;
+    return Response.json({ok:true});
+  }catch(e){
+    return Response.json({ok:false, error:String(e)},{status:500});
+  }
+}

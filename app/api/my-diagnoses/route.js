@@ -1,32 +1,19 @@
 import { neon } from "@neondatabase/serverless";
-import { checkSession } from "../auth/password.js";
-import { openSaving, ensureSavingColumns } from "../auth/crypto.js";
 export async function GET(req){
   try{
     const { searchParams } = new URL(req.url);
-    const email = (searchParams.get("email")||"").trim().toLowerCase();
-    if(!email) return Response.json({ok:false, error:"email 필요"},{status:400});
-    if(!process.env.DATABASE_URL && process.env.NODE_ENV === "production") return Response.json({ok:false, error:"서버 설정 오류입니다"}, {status:503});
-    if(!process.env.DATABASE_URL) return Response.json({ok:true, savings:[]});
+    const phone = searchParams.get("phone");
+    const email = searchParams.get("email");
+    if(!process.env.DATABASE_URL) return Response.json({savings:[]});
     const sql = neon(process.env.DATABASE_URL);
-    const users = await sql`SELECT password, suspended_at FROM users WHERE LOWER(email)=${email} LIMIT 1`;
-    // 토큰이 맞는 회원만 본인 기록을 볼 수 있다
-    if(users.length === 0 || !checkSession(req, email, users[0].password)){
-      return Response.json({ok:false, error:"로그인이 필요합니다"},{status:401});
+    let savings=[];
+    if(phone){
+      savings = await sql`SELECT * FROM savings WHERE phone=${phone} ORDER BY id DESC LIMIT 10`;
+    } else if(email){
+      savings = await sql`SELECT * FROM savings WHERE phone LIKE ${"%"+email+"%"} OR name LIKE ${"%"+email+"%"} ORDER BY id DESC LIMIT 10`;
     }
-    if(users[0].suspended_at) return Response.json({ok:false, error:"이용이 정지된 계정입니다"},{status:403});
-    let savings = [];
-    try{
-      await ensureSavingColumns(sql);
-      const rows = await sql`SELECT id, name, total, details, details_enc, inputs, inputs_enc, created_at FROM savings WHERE LOWER(email)=${email} ORDER BY id DESC LIMIT 50`;
-      savings = rows.map(openSaving);
-    }catch(e){
-      // 테이블이 아직 없으면 기록이 없는 것으로 보고, 그 밖의 오류(예: 암호화 키 문제)는 알린다
-      if(!String(e).includes("does not exist")) throw e;
-      console.error("my-diagnoses no table", e);
-    }
-    return Response.json({ok:true, savings});
+    return Response.json({savings});
   }catch(e){
-    return Response.json({ok:false, error:"서버 오류가 발생했습니다"},{status:500});
+    return Response.json({savings:[], error:String(e)});
   }
 }

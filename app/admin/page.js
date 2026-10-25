@@ -1,13 +1,3 @@
 "use client";
-// 관리자 기능은 메인 화면의 관리자 탭에서만 제공됩니다 (관리자 계정 로그인 필요).
-export default function Admin(){
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="max-w-sm w-full border rounded-2xl p-6 text-center">
-        <h1 className="font-black text-xl">관리자</h1>
-        <p className="text-[13px] text-black/50 mt-2">관리자 계정으로 로그인한 뒤 메인 화면의 관리자 탭을 이용해 주세요.</p>
-        <a href="/" className="mt-4 inline-block bg-black text-white rounded-full px-6 py-2 text-[13px] font-bold">메인으로</a>
-      </div>
-    </div>
-  );
-}
+import { useState } from "react";
+export default function Admin(){const [authed,setAuthed]=useState(false);const [pw,setPw]=useState("");const [data,setData]=useState({users:[],savings:[]});const login=()=>{if(pw==="fixcut2024"){setAuthed(true); fetch("/api/admin/list").then(r=>r.json()).then(setData);} else alert("비번 틀림");}; if(!authed) return <div className="min-h-screen flex items-center justify-center p-6"><div className="max-w-sm w-full border rounded-2xl p-6"><h1 className="font-black text-xl">관리자</h1><input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="fixcut2024" className="mt-4 w-full border rounded-xl px-4 py-3"/><button onClick={login} className="mt-3 w-full bg-black text-white rounded-xl py-3 font-bold">입장</button></div></div>; return <div className="max-w-3xl mx-auto p-6"><h1 className="font-black text-2xl">FIXCUT 관리자</h1><h2 className="mt-6 font-bold">회원 {data.users.length}명</h2><div className="mt-2 space-y-2">{data.users.map(u=><div key={u.id} className="border rounded-xl p-3 text-sm"><span className="font-bold">{u.name}</span> {u.phone} {u.email}</div>)}</div></div>;}
