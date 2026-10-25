@@ -1,5 +1,5 @@
 
-import { getDb } from '../../../lib/db';
+import { getDb } from '@/lib/db';
 export async function GET(req){
   try{
     const sql=getDb();

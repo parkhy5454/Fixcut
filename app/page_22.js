@@ -51,24 +51,26 @@ export default function Page(){
   const [myReferrals,setMyReferrals]=useState([]);
   const [copied,setCopied]=useState(false);
 
-  
   useEffect(()=>{
     try{
       const s=localStorage.getItem("fixcut_auth");
-      if(s){ 
+      if(s){
         const u=JSON.parse(s);
         setAuth(u);
+        setEditForm({name:u.name||"",phone:u.phone||"",email:u.email||"",password:"",newPassword:""});
+        const code = (u.email?.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
+        setReferralCode(localStorage.getItem("fixcut_ref_code")||code);
+        if(!localStorage.getItem("fixcut_ref_code")) localStorage.setItem("fixcut_ref_code", code);
       }
-      const saved=localStorage.getItem("fixcut_my_diagnoses");
-      if(saved){ try{ setMyDiagnoses(JSON.parse(saved)); }catch(e){} }
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get("ref");
+      if(ref){
+        setAuthForm(prev=>({...prev, referralCode:ref}));
+        localStorage.setItem("fixcut_incoming_ref", ref);
+      }
     }catch(e){}
   },[]);
 
-  useEffect(()=>{
-    if(auth){
-      setEditForm({name:auth.name||"", phone:auth.phone||"", email:auth.email||"", password:"", newPassword:""});
-    }
-  }, [auth]);
   useEffect(()=>{
     if(referralCode && auth){
       fetch("/api/referral?code="+referralCode).then(r=>r.json()).then(d=>setMyReferrals(d.referrals||[])).catch(()=>{});

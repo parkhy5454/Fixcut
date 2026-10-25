@@ -34,14 +34,7 @@ const Icons = {
 
 export default function Page(){
   const [tab,setTab]=useState("home");
-  const getDisplayName = (u)=>{
-    if(!u) return "";
-    // if name is email-like or same as username part, try realName
-    if(u.realName) return u.realName;
-    const n = u.name||"";
-    if(n.includes("@")) return u.email?.split("@")[0]||n;
-    return n;
-  };
+  const getDisplayName = (u)=>{ if(!u) return ""; if(u.realName) return u.realName; const n=u.name||""; if(n.includes("@")) return u.email?.split("@")[0]||n; return n; };
   const [auth,setAuth]=useState(null);
   const [showAuth,setShowAuth]=useState(null);
   const [authForm,setAuthForm]=useState({name:"",phone:"",email:"",password:"",referralCode:""});
@@ -49,7 +42,7 @@ export default function Page(){
   const [form,setForm]=useState({
     name:"", carrier:"KT", phoneFee:"69,000", dataUsage:"11",
     ott:{netflix:false,youtube:false,disney:false,wavve:false,tving:false},
-    loanInstitution:"", loanAmount:"30,000,000", loanRate:"4.8"
+    loans:[{institution:"하나은행", amount:"30,000,000", rate:"4.8"}]
   });
   const [result,setResult]=useState(null);
   const [adminData,setAdminData]=useState({users:[],savings:[],referrals:[]});
@@ -59,6 +52,12 @@ export default function Page(){
   const [myReferrals,setMyReferrals]=useState([]);
   const [copied,setCopied]=useState(false);
 
+  useEffect(()=>{
+    if(tab==="diag" && auth && step===1){
+      const dName=getDisplayName(auth);
+      if(dName){ setForm(prev=>({...prev, name:dName})); setStep(2); }
+    }
+  },[tab, auth]);
   useEffect(()=>{
     try{
       const s=localStorage.getItem("fixcut_auth");
@@ -78,16 +77,6 @@ export default function Page(){
       }
     }catch(e){}
   },[]);
-
-  useEffect(()=>{
-    if(tab==="diag" && auth && step===1){
-      const dName=getDisplayName(auth);
-      if(dName){
-        setForm(prev=>({...prev, name:dName}));
-        setStep(2);
-      }
-    }
-  },[tab, auth]);
 
   useEffect(()=>{
     if(referralCode && auth){
@@ -126,9 +115,6 @@ export default function Page(){
     let t=0; let d=[];
     const phoneFeeNum = parseNumber(form.phoneFee);
     const dataUsageNum = parseNumber(form.dataUsage);
-    const loanAmountNum = parseNumber(form.loanAmount);
-    const loanRateNum = parseFloat(form.loanRate) || 0;
-
     if(form.carrier!=="알뜰폰" && phoneFeeNum>30000){
       const tar=dataUsageNum<=15?19900:29700;
       const sv=phoneFeeNum-tar;
@@ -139,11 +125,15 @@ export default function Page(){
     Object.keys(form.ott).forEach(k=>{
       if(form.ott[k]){ t+=fees[k]; d.push({title:`${feeNames[k]} 공유/해지`,save:fees[k], desc:`${formatComma(fees[k])}원 절약`}); }
     });
-    if(loanAmountNum>=5000000 && loanRateNum>3.2){
-      const ms=Math.round(loanAmountNum*(loanRateNum-3.2)/100/12);
-      if(ms>0){t+=ms; d.push({title:`${form.loanInstitution||"대출"} 금리 ${loanRateNum}% → 3.2% 대환`,save:ms, desc:`${form.loanInstitution||"대출"} ${formatComma(loanAmountNum)}원 기준`});}
-    }
-    return {total:t,details:d, inputs:{phoneFeeNum,dataUsageNum,loanAmountNum,loanRateNum,loanInstitution:form.loanInstitution}};
+    (form.loans||[]).forEach((loan, idx)=>{
+      const amt = parseNumber(loan.amount);
+      const rate = parseFloat(loan.rate) || 0;
+      if(amt>=1000000 && rate>3.2){
+        const ms=Math.round(amt*(rate-3.2)/100/12);
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → 3.2% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
+      }
+    });
+    return {total:t,details:d};
   };
 
   const widthPercent = step * 25 + "%";
@@ -193,7 +183,7 @@ export default function Page(){
               <div>
                 <div className="text-[12px] font-bold mb-2">현재 요금제 금액</div>
                 <div className="relative">
-                  <input value={form.phoneFee} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,phoneFee:""}); return;} const num=Number(raw); setForm({...form,phoneFee:formatComma(num)});}} placeholder="69,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <input value={form.phoneFee} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,phoneFee:""}); return;} const num=Number(raw); setForm({...form,phoneFee:formatComma(num)});}} placeholder="실제 사용 데이터 입력" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
                 
@@ -218,12 +208,12 @@ export default function Page(){
           ].map(k=><label key={k.key} className={"flex items-center justify-between p-4 border rounded-2xl cursor-pointer "+(form.ott[k.key]?"bg-black text-white border-black":"bg-white")}><div className="flex items-center gap-3"><input type="checkbox" checked={form.ott[k.key]} onChange={e=>setForm({...form,ott:{...form.ott,[k.key]:e.target.checked}})} className="w-5 h-5"/><span className="font-bold text-[14px]">{k.name}</span></div><span className={"text-[12px] "+(form.ott[k.key]?"text-white/60":"text-black/40")}>{k.price}</span></label>)}</div><div className="mt-6 flex gap-2"><button onClick={()=>setStep(2)} className="flex-1 bg-black/5 rounded-full py-4 font-bold">이전</button><button onClick={()=>setStep(4)} className="flex-[2] bg-black text-white rounded-full py-4 font-bold">다음</button></div></div>}
 
           {step===4 && <div className="mt-8">
-            <h2 className="text-[26px] font-black leading-tight">대출 정보 입력</h2>
-            
+            <h2 className="text-[26px] font-black leading-tight">대출 정보를<br/>입력해주세요</h2>
+            <p className="text-[13px] text-black/50 mt-1">없으면 비워두고 결과 보기 가능</p>
             <div className="mt-6 space-y-5">
               <div>
                 <div className="text-[12px] font-bold mb-2">대출 기관</div>
-                <select value={form.loanInstitution} onChange={e=>setForm({...form,loanInstitution:e.target.value})} className="w-full bg-gray-50 border rounded-2xl px-5 py-4 text-[15px] font-bold">
+                <select value={form.loans?.[0]?.institution||""} onChange={e=>setForm({...form,loanInstitution:e.target.value})} className="w-full bg-gray-50 border rounded-2xl px-5 py-4 text-[15px] font-bold">
                   <option value="">선택 (없으면 건너뛰기)</option>
                   <option value="KB국민은행">KB국민은행</option>
                   <option value="신한은행">신한은행</option>
@@ -240,7 +230,7 @@ export default function Page(){
               <div>
                 <div className="text-[12px] font-bold mb-2">대출 잔액</div>
                 <div className="relative">
-                  <input value={form.loanAmount} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,loanAmount:""}); return;} const num=Number(raw); setForm({...form,loanAmount:formatComma(num)});}} placeholder="30,000,000" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
+                  <input value={form.loanAmount} onChange={e=>{const raw=e.target.value.replace(/[^0-9]/g,""); if(raw===""){setForm({...form,loanAmount:""}); return;} const num=Number(raw); setForm({...form,loanAmount:formatComma(num)});}} placeholder="실제 사용 데이터 입력" inputMode="numeric" className="w-full bg-gray-50 border rounded-2xl px-5 py-4 pr-12 text-[18px] font-bold"/>
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-black/40">원</span>
                 </div>
               </div>
@@ -256,7 +246,7 @@ export default function Page(){
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loanInstitution||"없음"} {form.loanAmount?formatComma(parseNumber(form.loanAmount))+"원":""} {form.loanRate?form.loanRate+"%":""}</div></div></div></div>}</div>}
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans?.[0]?.institution||""||"없음"} {form.loanAmount?formatComma(parseNumber(form.loanAmount))+"원":""} {form.loanRate?form.loanRate+"%":""}</div></div></div></div>}</div>}
 
         {tab==="referral" && <div className="mt-6">
           <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
@@ -295,13 +285,7 @@ export default function Page(){
                 <div className="text-[13px] text-black/50 mt-1">{auth.email}</div>
                 <div className="text-[12px] text-black/40">{auth.phone}</div>
               </div>
-              <button onClick={()=>{
-          if(auth && tab!=="diag"){
-            const dName=getDisplayName(auth);
-            if(dName) setForm(prev=>({...prev, name:dName}));
-          }
-        }} style={{display:"none"}}></button>
-        <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
+              <button onClick={()=>{setEditMode(!editMode); setEditForm({name:auth.name,phone:auth.phone,email:auth.email,password:"",newPassword:""});}} className="bg-black/5 px-4 py-2 rounded-full text-[12px] font-bold">{editMode?"닫기":"수정"}</button>
             </div>
 
             <div className="mt-5 bg-gradient-to-r from-amber-300 to-orange-300 rounded-2xl p-4 flex justify-between items-center">
@@ -338,7 +322,7 @@ export default function Page(){
           <button onClick={async()=>{
             const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
             if(showAuth==="signup" && (!authForm.name||!authForm.phone||!authForm.email||!authForm.password)){alert("모두 입력"); return;}
-            const user={name:(authForm.name||"").trim()||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email, realName:(authForm.name||"").trim()};
+            const user={name:authForm.name||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email};
             localStorage.setItem("fixcut_auth",JSON.stringify(user));
             const code = (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
             localStorage.setItem("fixcut_ref_code", code);

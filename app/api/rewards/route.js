@@ -1,6 +1,6 @@
 
-import { getDb, initTables } from '../../../lib/db';
-import { verifyToken } from '../../../lib/auth';
+import { getDb, initTables } from '@/lib/db';
+import { verifyToken } from '@/lib/auth';
 export async function POST(req){
   try{
     const {type, referredEmail} = await req.json();

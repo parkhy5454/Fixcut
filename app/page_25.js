@@ -341,7 +341,7 @@ export default function Page(){
         </div>
       </div></div>}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50"><div className="max-w-[480px] mx-auto px-1 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
+      <div className="fixed bottom-0 safe-bottom left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50"><div className="max-w-[480px] mx-auto px-1 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
         <button onClick={()=>setTab("home")} className="flex flex-col items-center py-1.5 gap-1">{Icons.home(tab==="home")}<span className={"text-[10px] font-bold "+(tab==="home"?"text-black":"text-black/40")}>홈</span></button>
         <button onClick={()=>setTab("diag")} className="flex flex-col items-center py-1.5 gap-1">{Icons.diag(tab==="diag")}<span className={"text-[10px] font-bold "+(tab==="diag"?"text-black":"text-black/40")}>진단</span></button>
         <button onClick={()=>setTab("saving")} className="flex flex-col items-center py-1.5 gap-1">{Icons.saving(tab==="saving")}<span className={"text-[10px] font-bold "+(tab==="saving"?"text-violet-600":"text-black/40")}>절약</span></button>

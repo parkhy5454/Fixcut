@@ -78,13 +78,55 @@ export default function Page(){
       }
     }catch(e){}
   },[]);
+  // ULTIMATE SAFE: DB가 ID면 절대 로컬을 덮어쓰지 않음 - 무한 반복 차단
+  useEffect(()=>{
+    const safeSync = async()=>{
+      try{
+        const s=localStorage.getItem("fixcut_auth");
+        if(!s) return;
+        const u=JSON.parse(s);
+        if(!u.email) return;
+        const hasHangul = (v)=>/[가-힣]/.test(v||"");
+        const isIdLike = (name, email)=>{
+          if(!name) return true;
+          if(name.includes("@")) return true;
+          if(email && name.toLowerCase()===email.split("@")[0].toLowerCase()) return true;
+          if(!hasHangul(name) && /^[a-z0-9._-]+$/i.test(name) && name.length<=25) return true;
+          return false;
+        };
+        const res = await fetch(`/api/auth/me?email=${encodeURIComponent(u.email)}`);
+        const data = await res.json();
+        if(!data.ok || !data.user) return;
+        const db = data.user;
+        // Case 1: 로컬은 정상(한글)인데 DB는 ID -> 로컬을 DB에 업로드, 로컬 유지
+        if(hasHangul(u.name) && isIdLike(db.name, db.email)){
+          await fetch("/api/auth/me",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email:u.email, name:u.name, phone:u.phone})});
+          return; // keep local
+        }
+        // Case 2: 로컬이 ID인데 DB는 정상 -> DB로 로컬 교정 (한 번만)
+        if(isIdLike(u.name, u.email) && hasHangul(db.name)){
+          const fixed={...u, name:db.name, phone:db.phone||u.phone, email:db.email||u.email};
+          localStorage.setItem("fixcut_auth", JSON.stringify(fixed));
+          setAuth(fixed);
+          return;
+        }
+        // Case 3: DB phone이 비어있고 로컬 phone이 있으면 DB에 업로드
+        if((!db.phone || db.phone.trim()==="") && u.phone){
+          await fetch("/api/auth/me",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email:u.email, name:u.name, phone:u.phone})});
+        }
+        // 그 외에는 아무 것도 안 함 - 로컬이 1순위
+      }catch(e){}
+    };
+    safeSync();
+  },[]);
 
-  // FINAL: editForm은 항상 auth(정상 로그인 정보)를 따라감 - DB의 잘못된 ID로 덮어쓰지 않음
+  // editForm은 항상 auth를 따라감
   useEffect(()=>{
     if(auth){
       setEditForm({name:auth.name||"", phone:auth.phone||"", email:auth.email||"", password:"", newPassword:""});
     }
   }, [auth]);
+
 
 
   useEffect(()=>{

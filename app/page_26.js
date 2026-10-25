@@ -124,7 +124,7 @@ export default function Page(){
       const rate = parseFloat(loan.rate) || 0;
       if(amt>=1000000 && rate>3.2){
         const ms=Math.round(amt*(rate-3.2)/100/12);
-        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → 3.2% 대환`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
+        if(ms>0){t+=ms; d.push({title:`${loan.institution||"대출"+(idx+1)} ${rate}% → 3.2% 케이뱅크 대환 최저 3.85% 기준`,save:ms, desc:`${loan.institution||"대출"} ${formatComma(amt)}원 기준`});}
       }
     });
     return {total:t,details:d};
@@ -244,7 +244,7 @@ export default function Page(){
           </div>}
         </div>}
 
-        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
+        {tab==="saving" && <div className="mt-6">{!result ? <div className="text-center py-20"><div className="text-[14px] font-bold">진단 먼저 해주세요</div><button onClick={()=>{setTab("diag"); setStep(1);}} className="mt-4 bg-black text-white rounded-full px-6 py-2 text-[13px]">진단하기</button></div> : <div><h2 className="text-[26px] font-black">월 {formatComma(result.total)}원 절약 (추정치)</h2><p className="text-[13px] text-black/50 mt-1">아래 방법으로 절약할 수 있어요</p><div className="mt-6 space-y-3">{result.details.map((d,i)=><div key={i} className="border rounded-2xl p-4 flex justify-between items-center"><div><div className="font-bold text-[14px]">{d.title}</div><div className="text-[11px] text-black/40 mt-0.5">{d.desc}</div></div><div className="font-black text-violet-600 text-[15px]">{formatComma(d.save)}원</div></div>)}</div>{result.details.length===0 && <div className="text-center py-10 bg-gray-50 rounded-2xl mt-4"><div className="text-[13px] font-bold">절약할 항목이 없어요!</div><div className="text-[11px] text-black/40 mt-1">이미 알뜰하게 관리 중이시네요</div></div>}<div className="mt-6 bg-gray-50 rounded-2xl p-4"><div className="text-[11px] font-bold text-black/50">입력한 정보</div><div className="text-[12px] mt-2 space-y-1"><div>통신사: {form.carrier} / {formatComma(parseNumber(form.phoneFee))}원 / {form.dataUsage}GB</div><div>대출: {form.loans.length}건 {form.loans.map(l=> (l.institution||"대출")+" "+(l.amount?formatComma(parseNumber(l.amount))+"원 ":"")+ (l.rate?l.rate+"% ":"")).join(", ")}</div></div></div></div>}</div>}
 
         {tab==="referral" && <div className="mt-6">
           <h2 className="text-[26px] font-black leading-tight">친구 추천하면<br/><span className="text-amber-500">둘 다 1만원!</span></h2>
@@ -341,7 +341,7 @@ export default function Page(){
         </div>
       </div></div>}
 
-      <div className="fixed bottom-0 safe-bottom left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50"><div className="max-w-[480px] mx-auto px-1 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t z-50"><div className="max-w-[480px] mx-auto px-1 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"><div className="grid grid-cols-5 gap-1">
         <button onClick={()=>setTab("home")} className="flex flex-col items-center py-1.5 gap-1">{Icons.home(tab==="home")}<span className={"text-[10px] font-bold "+(tab==="home"?"text-black":"text-black/40")}>홈</span></button>
         <button onClick={()=>setTab("diag")} className="flex flex-col items-center py-1.5 gap-1">{Icons.diag(tab==="diag")}<span className={"text-[10px] font-bold "+(tab==="diag"?"text-black":"text-black/40")}>진단</span></button>
         <button onClick={()=>setTab("saving")} className="flex flex-col items-center py-1.5 gap-1">{Icons.saving(tab==="saving")}<span className={"text-[10px] font-bold "+(tab==="saving"?"text-violet-600":"text-black/40")}>절약</span></button>

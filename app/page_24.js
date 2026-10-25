@@ -320,7 +320,7 @@ export default function Page(){
           <button onClick={async()=>{
             const incomingRef = localStorage.getItem("fixcut_incoming_ref") || authForm.referralCode;
             if(showAuth==="signup" && (!authForm.name||!authForm.phone||!authForm.email||!authForm.password)){alert("모두 입력"); return;}
-            const user={name:authForm.name||authForm.email.split("@")[0],phone:authForm.phone,email:authForm.email};
+            const user={name:authForm.name||"",phone:authForm.phone,email:authForm.email};
             localStorage.setItem("fixcut_auth",JSON.stringify(user));
             const code = (user.email.split("@")[0]||"fixcut").toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
             localStorage.setItem("fixcut_ref_code", code);
